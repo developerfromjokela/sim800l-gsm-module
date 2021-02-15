@@ -1,11 +1,18 @@
 # Raspberry Pi sim800l gsm module
 - connecting the raspberry pi to sim8ool gsm module to send, receive sms, delete sms etc.
 
+>> SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
+
 ##  Requirements
 - Raspberry pi 3 with Raspbian OS installed.
 - Sim800L GSM module
 - external power supply for the Sim800L (5v 1A worked for our case, use the correct one for your module)
 - A bunch of jumper wires.
+
+## References
+- https://github.com/vshymanskyy/TinyGSM
+- https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
+- [AT Datasheet](https://www.elecrow.com/wiki/images/2/20/SIM800_Series_AT_Command_Manual_V1.09.pdf)
 
 ## setup
 ### Hardware connection
@@ -51,6 +58,3 @@ sim800l.callback_msg(print_delete)
 while True:
     sim800l.check_incoming()
 ```
-
-## Reference 
-- Here is an [article](https://medium.com/@jackogina60/connecting-sim8ool-gsm-module-with-raspberry-pi-to-send-sms-read-sms-etc-using-python-f27716449405) i wrote about this.
