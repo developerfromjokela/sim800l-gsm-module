@@ -246,7 +246,7 @@ Not used
 
 ```python 
 from sim800l import SIM800L
-sim800l=SIM800L('/dev/serial0')
+sim800l = SIM800L('/dev/serial0')
 ```
 
 #### Return module information
