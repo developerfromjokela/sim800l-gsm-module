@@ -2,16 +2,16 @@
 
 SIM800L GSM module library for the Raspberry Pi.
 
-This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-module.
+This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-module with many additions.
 
-It allows sending, receiving and deleting SMS, as well as performing HTTP GET/POST requests and getting information from the module.
+It allows sending, receiving and deleting SMS messages, as well as performing HTTP GET/POST requests, synching/updating the RTC and getting other information from the module.
 
 > SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
 
-##  Requirements
-- Raspberry Pi with Raspbian Pi OS installed.
-- Sim800L GSM module
-- external power supply for the Sim800L (a capacitor and a diode might work)
+## Hw Requirements
+- Raspberry Pi with [Raspberry Pi OS](https://en.wikipedia.org/wiki/Raspberry_Pi_OS) (this library has been tested with Buster and Bullseye).
+- [SIM800L GSM module](https://www.simcom.com/product/SIM800.html).
+- External power supply for the SIM800L (using the Raspberry Pi 5V power supply, a standard diode (1N4007) with voltage drop of about 0.6 volts and a 2200 uF capacitor might work).
 
 ## References
 - [AT Datasheet](https://microchip.ua/simcom/2G/SIM800%20Series_AT%20Command%20Manual_V1.12.pdf)
@@ -29,23 +29,25 @@ Arduino:
 
 ![sim800l](https://user-images.githubusercontent.com/8292987/155906146-e6c934e1-34b1-4499-9efe-c497f54d88f3.jpg)
 
-### Disable serial console
-We will start by disabling serial console to enable communication between the pi and sim800l via serial0.
+### Disabling the serial console login
 
-Open the terminal on your pi and run `sudo raspi-config` 
-Select Interfaces → Serial 
-Select No to the 1st prompt and Yes for the 2nd.
+Disabling the serial console login is needed in order to enable communication between the Raspberry Pi and SIM800L via /dev/serial0.
+
+- Open the terminal on your pi and run `sudo raspi-config` 
+- Select Interfaces → Serial 
+- Select No to the 1st prompt and Yes for the 2nd one.
 
 ## API Documentation
 
-#### `class SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
+#### `sim800l = SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
+Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
 - `port`: port name
 - `baudrate`: baudrate in bps
 - `timeout`: timeout in seconds
 
 #### `check_sim()`
 Check whether the SIM card has been inserted.
- *return*: True if the SIM is inserted, otherwise False
+ *return*: `True` if the SIM is inserted, otherwise `False`
 
 #### `command(cmdstr, lines=1, waitfor=500, msgtext=None)`
 Executes an AT command
@@ -58,17 +60,17 @@ Executes an AT command
 #### `command_ok(cmd, check_download=False, check_error=False, cmd_timeout=10)`
 Send AT command to the device and check that the return sting is OK
 - `cmd`: AT command
-- `check_download`: True if the “DOWNLOAD” return sting has to be checked
-- `check_error`: True if the “ERROR” return sting has to be checked
+- `check_download`: `True` if the “DOWNLOAD” return sting has to be checked
+- `check_error`: `True` if the “ERROR” return sting has to be checked
 - `cmd_timeout`: timeout in seconds
- *return*: True = OK received, False = OK not received. If check_error, can return “ERROR”; if check_download, can return “DOWNLOAD”
+ *return*: `True` = OK received, `False` = OK not received. If check_error, can return `ERROR`; if check_download, can return `DOWNLOAD`
 
 #### `connect_gprs(apn=None)`
 Connect to the bearer and get the IP address of the PDP context.
 Automatically perform the full PDP context setup.
 Reuse the IP session if an IP address is found active.
 - `apn`: APN name
- *return*: False if error, otherwise return the IP address (as string)
+ *return*: `False` if error, otherwise return the IP address (as string)
 
 #### `delete_sms(index_id)`
 Delete the SMS message referred to the index
@@ -77,7 +79,7 @@ Delete the SMS message referred to the index
 
 #### `disconnect_gprs(apn=None)`
 Disconnect the bearer.
- *return*: True if succesfull, False if error
+ *return*: `True` if succesfull, `False` if error
 
 #### `get_battery_voltage()`
 Return the battery voltage in Volts
@@ -147,9 +149,9 @@ Get the SIM800 GSM module unit name
 #### `hard_reset(reset_gpio)`
 Perform a hard reset of the SIM800 module through the RESET pin
 - `reset_gpio`: RESET pin
- *return*: True if the SIM is active after the reset, otherwise False
+ *return*: `True` if the SIM is active after the reset, otherwise `False`
 
-#### `http(url=None, data=None, apn=None, method=None, http_timeout=10, keep_session=False)`
+#### `http(url="...", data="...", apn="...", method="...", http_timeout=10, keep_session=False)`
 Run the HTTP GET method or the HTTP PUT method and return retrieved data
 Automatically perform the full PDP context setup and close it at the end
 (use keep_session=True to keep the IP session active). Reuse the IP
@@ -158,26 +160,26 @@ Automatically open and close the HTTP session, resetting errors.
 - `url`: URL
 - `data`: input data used for the PUT method
 - `apn`: APN name
-- `method`: GET or PUT
+- `method`: "GET" or "PUT"
 - `http_timeout`: timeout in seconds
-- `keep_session`: True to keep the PDP context active at the end
- *return*: False if error, otherwise the returned data (as string)
+- `keep_session`: `True` to keep the PDP context active at the end
+ *return*: `False` if error, otherwise the returned data (as string)
 
 #### `internet_sync_time(time_server='193.204.114.232', time_zone_quarter=4, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and sync the internal RTC with
 the local time returned by the NTP time server (Network Time Protocol).
 Automatically perform the full PDP context setup.
-Disconnect the bearer at the end (unless keep_session = True)
+Disconnect the bearer at the end (unless keep_session = `True`)
 Reuse the IP session if an IP address is found active.
 - `time_server`: internet time server (IP address string)
 - `time_zone_quarter`: time zone in quarter of hour
 - `http_timeout`: timeout in seconds
-- `keep_session`: True to keep the PDP context active at the end
- *return*: False if error, otherwise the returned date (datetime.datetime)
+- `keep_session`: `True` to keep the PDP context active at the end
+ *return*: `False` if error, otherwise the returned date (datetime.datetime)
 
 #### `is_registered()`
 Check whether the SIM is Registered, home network
- *return*: Truse if registered, otherwise False
+ *return*: Truse if registered, otherwise `False`
 
 #### `read_and_delete_all()`
 Read the first message
@@ -186,7 +188,7 @@ Read the first message
 #### `read_next_message(all_msg=False)`
 Read and delete messages.
 Can be repeatedly called to read messages one by one and delete them.
-- `all_msg`: True if no filter is used (read and non read messages).  Otherwise only the non read messages are returned.
+- `all_msg`: `True` if no filter is used (read and non read messages).  Otherwise only the non read messages are returned.
  *return*: retrieved message text (string)
 
 #### `read_sms(index_id)`
@@ -331,6 +333,6 @@ def print_delete():
 
 sim800l.callback_msg(print_delete)
 
-while True:
+while `True`:
     sim800l.check_incoming()
 ```
