@@ -6,7 +6,7 @@ This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-mod
 
 It allows sending, receiving and deleting SMS, as well as performing HTTP GET/POST requests and getting information from the module.
 
->> SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
+> SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
 
 ##  Requirements
 - Raspberry Pi with Raspbian Pi OS installed.
@@ -211,12 +211,12 @@ Set the Linux system date with the GSM time
 #### `setup()`
 Run setup strings for the initial configuration of the SIM800 module
 
-### sim800l.convert_gsm(string)`
+#### `sim800l.convert_gsm(string)`
 Convert string to gsm03.38 bytes
 - `string`: UTF8 string
  *return*: gsm03.38 bytes
 
-### sim800l.convert_to_string(buf)`
+#### `sim800l.convert_to_string(buf)`
 Convert gsm03.38 bytes to string
 - `buf`: gsm03.38 bytes
  *return*: UTF8 string
@@ -247,7 +247,7 @@ from sim800l import SIM800L
 sim800l=SIM800L('/dev/serial0')
 ```
 
-#### `Return module information
+#### Return module information
 ```python
 from sim800l import SIM800L
 
@@ -281,47 +281,47 @@ else:
     print("SIM NOT registered.")
 ```
 
-#### `Sync time with internet
+#### Sync time with internet
 ```python
 sim800l.internet_sync_time(apn="...", time_zone_quarter=...)
 ```
 
-#### `Hard reset
+#### Hard reset
 ```python
 # connect the RST pin with GPIO23 (pin 16 of the Raspberry Pi)
 sim800l.hard_reset(23)  # see schematics
 ```
 
-#### `Send SMS
+#### Send SMS
 ```python
 sms="Hello there"
 #sim800l.send_sms(dest.no,sms)
 sim800l.send_sms('2547xxxxxxxx',sms)
 ```
 
-#### `Read next SMS message
+#### Read next SMS message
 ```python
 msg = sim800l.read_next_message(all_msg=True)
 ```
 
-#### `HTTP GET samples
+#### HTTP GET samples
 ```python
 print(sim800l.http("http://httpbin.org/ip", method="GET", apn="..."))
 print(sim800l.http("http://httpbin.org/get", method="GET", apn="..."))
 ```
 
-#### `HTTP PUT sample
+#### HTTP PUT sample
 ```python
 print(sim800l.http("http://httpbin.org/post", data='{"name","abc"}', method="PUT", apn="..."))
 ```
 
-#### `Read n-th SMS
+#### Read n-th SMS
 ```python
 id=...  # e.g., 1
 sim800l.read_sms(id)
 ```
 
-#### `Callback action
+#### Callback action
 ```python
 def print_delete():
     # Assuming the SIM has no SMS initially
