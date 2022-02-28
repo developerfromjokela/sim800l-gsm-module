@@ -24,8 +24,10 @@ Arduino:
 
 
 ## setup
+
 ### Hardware connection
 
+![sim800l](https://user-images.githubusercontent.com/8292987/155906146-e6c934e1-34b1-4499-9efe-c497f54d88f3.jpg)
 
 ### Disable serial console
 We will start by disabling serial console to enable communication between the pi and sim800l via serial0.
