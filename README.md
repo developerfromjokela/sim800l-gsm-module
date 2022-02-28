@@ -1,4 +1,4 @@
-# Raspberry Pi sim800l gsm module
+# Raspberry Pi SIM800L GSM module
 
 SIM800L GSM module library for the Raspberry Pi.
 
@@ -23,7 +23,7 @@ Arduino:
 - https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
 
 
-## setup
+## Setup
 
 ### Hardware connection
 
@@ -39,7 +39,7 @@ Select No to the 1st prompt and Yes for the 2nd.
 
 ## API Documentation
 
-### class SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)
+### `class SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
 SIM800L driver
 - `port`: port name
 - `baudrate`: baudrate in bps
@@ -284,23 +284,86 @@ Check incoming data from the module
 from sim800l import SIM800L
 sim800l=SIM800L('/dev/serial0')
 ```
-#### send sms
+
+#### Return module information
+```python
+from sim800l import SIM800L
+
+sim800l = SIM800L()
+sim800l.setup()
+
+print("Date:",
+    sim800l.get_date())
+print("Operator:",
+    sim800l.get_operator())
+print("Service provider:",
+    sim800l.get_service_provider())
+print("Signal strength:",
+    sim800l.get_signal_strength(), "%")
+print("Temperature:",
+    sim800l.get_temperature(), "degrees")
+print("MSISDN:",
+    sim800l.get_msisdn())
+print("Battery Voltage:",
+    sim800l.get_battery_voltage(), "V")
+print("IMSI:",
+    sim800l.get_imsi())
+print("ICCID:",
+    sim800l.get_ccid())
+print("Unit Name:",
+    sim800l.get_unit_name())
+
+if sim800l.is_registered():
+    print("SIM is registered.")
+else:
+    print("SIM NOT registered.")
+```
+
+#### Sync time with internet
+```python
+sim800l.internet_sync_time(apn="...", time_zone_quarter=...)
+```
+
+#### Hard reset
+```python
+# connect the RST pin with GPIO23 (pin 16 of the Raspberry Pi)
+sim800l.hard_reset(23)  # see schematics
+```
+
+#### Send SMS
 ```python
 sms="Hello there"
 #sim800l.send_sms(dest.no,sms)
 sim800l.send_sms('2547xxxxxxxx',sms)
 ```
-#### read sms
+
+#### Read next SMS message
 ```python
-#sim800l.read_sms(id)
+msg = sim800l.read_next_message(all_msg=True)
+```
+
+#### HTTP GET samples
+```python
+print(sim800l.http("http://httpbin.org/ip", method="GET", apn="..."))
+print(sim800l.http("http://httpbin.org/get", method="GET", apn="..."))
+```
+
+#### HTTP PUT sample
+```python
+print(sim800l.http("http://httpbin.org/post", data='{"name","abc"}', method="PUT", apn="..."))
+```
+
+#### Read n-th SMS
+```python
+id=...  # e.g., 1
 sim800l.read_sms(id)
 ```
 
-#### callback action
+#### Callback action
 ```python
 def print_delete():
-    #assuming the sim has no sms initially
-    sms=sim800l.read_sms(1)
+    # Assuming the SIM has no SMS initially
+    sms = sim800l.read_sms(1)
     print(sms)
     sim800l.delete_sms(1)
 

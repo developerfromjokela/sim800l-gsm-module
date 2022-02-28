@@ -635,8 +635,14 @@ class SIM800L:
                 if not keep_session:
                     self.disconnect_gprs()
                 return False
-            r = self.command_ok(data)  # send post data
-            if not r:
+            logging.debug("SIM800L - Writing '%s'", data)
+            self.ser.write((data + '\n').encode())
+            expire = time.monotonic() + http_timeout
+            s = self.check_incoming()
+            while s == ('GENERIC', None) and time.monotonic() < expire:
+                time.sleep(0.1)
+                s = self.check_incoming()
+            if s != ("OK", None):
                 self.command('AT+HTTPTERM\n')
                 if not keep_session:
                     self.disconnect_gprs()
