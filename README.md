@@ -6,6 +6,8 @@ This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-mod
 
 It allows sending, receiving and deleting SMS messages, as well as performing HTTP GET/POST requests, synching/updating the RTC and getting other information from the module.
 
+The backward compatibility with the original repo is still kept.
+
 > SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
 
 ## Hw Requirements
@@ -49,13 +51,57 @@ Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
 Check whether the SIM card has been inserted.
  *return*: `True` if the SIM is inserted, otherwise `False`
 
-#### `command(cmdstr, lines=1, waitfor=500, msgtext=None)`
-Executes an AT command
+#### `command(cmdstr, lines=1, waitfor=500, msgtext=None, flush_input=True)`
+Executes an AT command. A newline must be added at the end of the AT command (e.g., `sim800l.command("AT+CCLK?\n", lines=-1)`).
+Input is flushed before sending the command (`flush_input=False` disables flushing).
+The first newline is discarded (if `lines` != 0).
 - `cmdstr`: AT command string
-- `lines`: number of expexted lines
-- `waitfor`: number of milliseconds to waith for the returned data
-- `msgtext`: SMS text; to be used in case of SMS message command
- *return*: returned data (string)
+- `lines`: number of expexted lines (see below)
+- `waitfor`: number of (milliseconds - 1000) to wait for the returned data; not used if <= 1000 milliseconds.
+- `msgtext`: only to be used when sending SMS messages, it includes the SMS text.
+- `flush_input`: `True` if residual input is flushed before sending the command. `False` disables flushing.
+
+ *return*: the first line is returned (string); use `check_incoming()` to read the subsequent lines. `None` is returned when no data is received.
+
+If `lines=0`, terminates just after writing text to the device (no bytes read; no return code, e.g. `None` returned). Note: `check_incoming()` can be subsequently used to read data from the device (see subsequent example).
+
+If `lines`<0 (e.g., `lines=-1`), return the concatenation of all read lines (until pySerial timeout `sim800l.serial_port().timeout`), separating each line by a linefeed.
+
+If `lines`>1 (legacy code), return the concatenation of all read lines, separating each line by a linefeed, discarding null lines and "OK".
+
+Example:
+
+```python
+import time
+from sim800l import SIM800L
+
+sim800l=SIM800L('/dev/serial0')
+
+# Send data and return the first line
+print(sim800l.command("AT+CCLK?\n"))  # ...+CCLK...
+
+# Same as before, but reading both lines
+sim800l.command("AT+CCLK?\n", lines=0)  # send AT command without reading data
+print("First read line:", sim800l.check_incoming())  # ...+CCLK...
+print("Second read line:", sim800l.check_incoming())  # ...'OK'...
+
+# Same as before, but more elaborated
+sim800l.command("AT+CCLK?\n", lines=0)
+expire = time.monotonic() + 2  # seconds
+sequence = ""
+s = sim800l.check_incoming()
+while s != ('GENERIC', None) and time.monotonic() < expire:
+    if s[0] == 'GENERIC' and s[1] and s[1].startswith('+CCLK: "'):
+        print("Date:", s[1].split('"')[1])
+        sequence += "D"
+    if s == ('OK', None):
+        sequence += "O"
+    time.sleep(0.1)
+    s = sim800l.check_incoming()
+
+if sequence != "DO":
+    print("Error")
+```
 
 #### `command_ok(cmd, check_download=False, check_error=False, cmd_timeout=10)`
 Send AT command to the device and check that the return sting is OK
@@ -75,7 +121,7 @@ Reuse the IP session if an IP address is found active.
 #### `delete_sms(index_id)`
 Delete the SMS message referred to the index
 - `index_id`: index in the SMS message list starting from 1
- *return*: None
+ *return*: `None`
 
 #### `disconnect_gprs(apn=None)`
 Disconnect the bearer.
@@ -181,20 +227,24 @@ Reuse the IP session if an IP address is found active.
 Check whether the SIM is Registered, home network
  *return*: Truse if registered, otherwise `False`
 
-#### `read_and_delete_all()`
-Read the first message
- *return*: text of the message
+#### `read_and_delete_all(index_id=1)`
+Read the message at position 1, otherwise delete all SMS messages, regardless the type (read, unread, sent, unsent, received).
+If the message is succesfully retrieved, no deletion is done. (Deletion only occurs in case of retrieval error.)
+Notice that, while generally message 1 is the first to be read, it might happen that no message at position 1 is available,
+while other positions might still include messages; for those cases (missing message at position 1, but other messages
+available at other positions), the whole set of messages is deleted.
+Use `index_id=0` to delete all messages without trying to retrieve the one at position 1.
+ *return*: text of the read message
 
 #### `read_next_message(all_msg=False)`
-Read and delete messages.
-Can be repeatedly called to read messages one by one and delete them.
-- `all_msg`: `True` if no filter is used (read and non read messages).  Otherwise only the non read messages are returned.
+Read one message and then delete it. This function can be repeatedly called to read all stored/received messages one by one and delete them.
+- `all_msg`: `True` if no filter is used (read and unread messages).  Otherwise only the unread messages are returned.
  *return*: retrieved message text (string)
 
 #### `read_sms(index_id)`
-Read the SMS message referred to the index
+Read the SMS message referred to the index_id position
 - `index_id`: index in the SMS message list starting from 1
- *return*: None if error, otherwise return a tuple including: MSISDN origin number, SMS date string, SMS time string, SMS text
+ *return*: `None` if error, otherwise return a tuple including: MSISDN origin number, SMS date string, SMS time string, SMS text
 
 #### `send_sms(destno, msgtext)`
 Send SMS message
@@ -214,33 +264,61 @@ Set the Linux system date with the GSM time
 Run setup strings for the initial configuration of the SIM800 module
 
 #### `sim800l.convert_gsm(string)`
-Convert string to gsm03.38 bytes
+Encode `string` to bytes using the 3GPP TS 23.038 / ETSI GSM 03.38 codec.
 - `string`: UTF8 string
  *return*: gsm03.38 bytes
 
 #### `sim800l.convert_to_string(buf)`
-Convert gsm03.38 bytes to string
+Decode GSM 03.38 encoded bytes, returning a string.
 - `buf`: gsm03.38 bytes
  *return*: UTF8 string
 
 #### `check_incoming()`
-Internal function.
 Check incoming data from the module
+It also fires `callback_msg()` and `callback_no_carrier()`.
  *return*: tuple
 
+Return values:
+- `('GENERIC', None)`: no data received
+- `('GENERIC', data)`: received data is returned (`data` is a string)
+- `("HTTPACTION_PUT", False)`: HTTP PUT method with return code different from 200
+- `("HTTPACTION_PUT", number)`: number of returned characters of a successful HTTP PUT method
+- `("HTTPACTION_GET", False)`: HTTP GET method with return code different from 200
+- `("HTTPACTION_GET", number)`: number of returned characters of a successful HTTP GET method
+- `("CMTI", index_id)`: received SMS message with index `index_id`
+- `("NOCARRIER", None)`: "NO CARRIER" message detected
+- `("RING", None)`: "RING" message detected
+- `("OK", None)`: "OK" message detected
+- `("DOWNLOAD", None)`: "DOWNLOAD" message detected
+
+Usage sample 1:
+```python
+if self.check_incoming() != ("OK", None):
+    print("Error")
+```
+
 #### `get_clip()`
-Not used
+(legacy code, not used)
 
 #### `set_charset_hex()`
+Set the module to the HEX character set (only hexadecimal values from 00 to FF)
 
 #### `set_charset_ira()`
+Set the module to the International reference alphabet (ITU-T T.50) character set
 
-#### `callback_incoming(action)`
+#### `callback_incoming(function)`
+(legacy code, not used)
+- `function`: Python function with no args
 
-#### `callback_msg(action)`
+#### `callback_msg(function)`
+(legacy code)
+Configure a callback function, fired when `check_incoming()` receives a message (`+CMTI` returned, indicating new message received).
+- `function`: Python function with no args
 
-#### `callback_no_carrier(action)`
-
+#### `callback_no_carrier(function)`
+(legacy code)
+Configure a callback function, fired when `check_incoming()` receives "NO CARRIER".
+- `function`: Python function with no args
 
 ## Usage examples
 
@@ -290,7 +368,7 @@ sim800l.internet_sync_time(apn="...", time_zone_quarter=...)
 
 #### Hard reset
 ```python
-# connect the RST pin with GPIO23 (pin 16 of the Raspberry Pi)
+# Note: connect the RST pin with GPIO23 (pin 16 of the Raspberry Pi)
 sim800l.hard_reset(23)  # see schematics
 ```
 
@@ -301,7 +379,7 @@ sms="Hello there"
 sim800l.send_sms('2547xxxxxxxx',sms)
 ```
 
-#### Read next SMS message
+#### Read the next SMS message
 ```python
 msg = sim800l.read_next_message(all_msg=True)
 ```
@@ -317,13 +395,15 @@ print(sim800l.http("http://httpbin.org/get", method="GET", apn="..."))
 print(sim800l.http("http://httpbin.org/post", data='{"name","abc"}', method="PUT", apn="..."))
 ```
 
-#### Read n-th SMS
+#### Read the n-th SMS
 ```python
-id=...  # e.g., 1
-sim800l.read_sms(id)
+Read the SMS indexed by the index_id value [ref. also check_incoming()]
+index_id=...  # e.g., 1
+sim800l.read_sms(index_id)
 ```
 
 #### Callback action
+(legacy code)
 ```python
 def print_delete():
     # Assuming the SIM has no SMS initially

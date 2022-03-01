@@ -51,7 +51,7 @@ def convert_to_string(buf):
 
 def convert_gsm(string):
     """
-    Convert string to gsm03.38 bytes
+    Encode the string with 3GPP TS 23.038 / ETSI GSM 03.38 codec.
     :param string: UTF8 string
     :return: gsm03.38 bytes
     """
@@ -296,9 +296,15 @@ class SIM800L:
         return self._msgid
 
     def set_charset_hex(self):
+        """
+        Set HEX character set (only hexadecimal values from 00 to FF)
+        """    
         return self.command('AT+CSCS="HEX"\n')
 
     def set_charset_ira(self):
+        """
+        Set the International reference alphabet (ITU-T T.50) character set
+        """
         return self.command('AT+CSCS="IRA"\n')
 
     def hard_reset(self, reset_gpio):
@@ -323,36 +329,44 @@ class SIM800L:
         """
         return self.ser
 
-    def command(self, cmdstr, lines=1, waitfor=500, msgtext=None):
+    def command(self,
+            cmdstr, lines=1, waitfor=500, msgtext=None, flush_input=True):
         """
         Executes an AT command
         :param cmdstr: AT command string
         :param lines: number of expexted lines
         :param waitfor: number of milliseconds to waith for the returned data
         :param msgtext: SMS text; to be used in case of SMS message command
+        :param flush_input: True if residual input is flushed before sending
+            the command. False disables flushing.
         :return: returned data (string)
         """
-        while self.ser.in_waiting:
+        while self.ser.in_waiting and flush_input:
             flush = self.ser.readline()
             logging.debug("SIM800L - Flushing %s", flush)
         logging.debug(
             "SIM800L - Writing '%s'", cmdstr.replace("\n", "\\n").replace("\r", "\\r"))
-        self.ser.write(cmdstr.encode("gsm03.38"))
+        self.ser.write(convert_gsm(cmdstr))
+        if lines == 0:
+            return
         if msgtext:
-            self.ser.write(self.convert_gsm(msgtext) + b'\x1A')
-        if waitfor > 1000:
+            self.ser.write(convert_gsm(msgtext) + b'\x1A')
+        if waitfor > 1000:  # this is kept from the original code...
             time.sleep((waitfor - 1000) / 1000)
-        self.ser.readline()  # discard linefeed etc
-        # print(buf)
+        buf = self.ser.readline().strip()  # discard linefeed etc
         if lines == -1:
-            buf = self.ser.readlines()
+            if buf:
+                buf = [buf] + self.ser.readlines()
+            else:
+                buf = self.ser.readlines()
             if not buf:
                 return None
             result = ""
             for i in buf:
                 result += convert_to_string(i) + "\n"
             return result
-        buf = self.ser.readline()
+        if not buf:
+            buf = self.ser.readline()
         if not buf:
             return None
         result = convert_to_string(buf)
@@ -378,7 +392,7 @@ class SIM800L:
         """
         result = self.command('AT+CMGS="{}"\n'.format(destno),
                               lines=99,
-                              waitfor=5000,
+                              waitfor=5000, # it means 4 seconds
                               msgtext=msgtext)
         if result and result == '>' and self.savbuf:
             params = self.savbuf.split(':')
@@ -720,7 +734,6 @@ class SIM800L:
 
     def check_incoming(self):
         """
-        Internal function.
         Check incoming data from the module
         :return: tuple
         """
@@ -758,7 +771,7 @@ class SIM800L:
                 self._msgid = int(params[1])
                 if self.msg_action:
                     self.msg_action()
-                return "CMTI", None
+                return "CMTI", self._msgid
 
             elif params[0] == "NO CARRIER":
                 self.no_carrier_action()
@@ -776,22 +789,24 @@ class SIM800L:
 
         return "GENERIC", buf
 
-    def read_and_delete_all(self):
+    def read_and_delete_all(self, index_id=1):
         """
-        Read the first message
+        Read the message at position 1, then delete all SMS messages, regardless
+        the type (read, unread, sent, unsent, received)
         :return: text of the message
         """
         try:
-            return self.read_sms(1)
+            if id > 0:
+                return self.read_sms(index_id)
         finally:
             self.command('AT+CMGDA="DEL ALL"\n', lines=1)
 
     def read_next_message(self, all_msg=False):
         """
-        Read and delete messages.
+        Read one message and then delete it.
         Can be repeatedly called to read messages one by one and delete them.
-        :param all_msg: True if no filter is used (read and non read messages).
-                        Otherwise only the non read messages are returned.
+        :param all_msg: True if no filter is used (return both read and non read
+                  messages). Otherwise, only the non read messages are returned.
         :return: retrieved message text (string)
         """
         if all_msg:
