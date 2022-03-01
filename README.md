@@ -197,7 +197,7 @@ Perform a hard reset of the SIM800 module through the RESET pin
 - `reset_gpio`: RESET pin
  *return*: `True` if the SIM is active after the reset, otherwise `False`
 
-#### `http(url="...", data="...", apn="...", method="...", http_timeout=10, keep_session=False)`
+#### `http(url="...", data="...", apn="...", method="...", use_ssl=True, allow_redirection=False, http_timeout=10, keep_session=False)`
 Run the HTTP GET method or the HTTP PUT method and return retrieved data
 Automatically perform the full PDP context setup and close it at the end
 (use keep_session=True to keep the IP session active). Reuse the IP
@@ -207,6 +207,8 @@ Automatically open and close the HTTP session, resetting errors.
 - `data`: input data used for the PUT method
 - `apn`: APN name
 - `method`: "GET" or "PUT"
+- `use_ssl`: `True` if using HTTPS, `False` if using HTTP
+- `allow_redirection`: `True` if HTTP redirection is allowed (e.g., if the server sends a redirect code (range 30x), the client will automatically send a new HTTP request)
 - `http_timeout`: timeout in seconds
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned data (as string)
@@ -386,13 +388,15 @@ msg = sim800l.read_next_message(all_msg=True)
 
 #### HTTP GET samples
 ```python
-print(sim800l.http("http://httpbin.org/ip", method="GET", apn="..."))
-print(sim800l.http("http://httpbin.org/get", method="GET", apn="..."))
+print(sim800l.http("httpbin.org/ip", method="GET", apn="..."))
+print(sim800l.http("httpbin.org/get", method="GET", use_ssl=False, apn="..."))  # HTTP
+print(sim800l.http("httpbin.org/get", method="GET", apn="..."))  # HTTPS
 ```
 
 #### HTTP PUT sample
 ```python
-print(sim800l.http("http://httpbin.org/post", data='{"name","abc"}', method="PUT", apn="..."))
+print(sim800l.http("httpbin.org/post", data='{"name","abc"}', method="PUT", apn="..."))  # HTTPS
+print(sim800l.http("httpbin.org/post", data='{"name","abc"}', method="PUT", use_ssl=False, apn="..."))  # HTTP
 ```
 
 #### Read the n-th SMS

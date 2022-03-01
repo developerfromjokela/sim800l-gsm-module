@@ -587,6 +587,8 @@ class SIM800L:
              data=None,
              apn=None,
              method=None,
+             use_ssl=True,
+             allow_redirection=False,
              http_timeout=10,
              keep_session=False):
         """
@@ -599,6 +601,10 @@ class SIM800L:
         :param data: input data used for the PUT method
         :param apn: APN name
         :param method: GET or PUT
+        :param use_ssl: True if using HTTPS, False if using HTTP
+        :param allow_redirection: True if HTTP redirection is allowed (e.g., if
+            the server sends a redirect code (range 30x), the client will
+            automatically send a new HTTP request)
         :param http_timeout: timeout in seconds
         :param keep_session: True to keep the PDP context active at the end
         :return: False if error, otherwise the returned data (as string)
@@ -614,9 +620,22 @@ class SIM800L:
             if not keep_session:
                 self.disconnect_gprs()
             return False
-        cmd = 'AT+HTTPINIT;+HTTPPARA="CID",1;+HTTPPARA="URL","' + url + '";+HTTPPARA="CONTENT","application/json"'
+        allow_redirection_string = ';+HTTPPARA="REDIR",0'
+        if allow_redirection:
+            allow_redirection_string = ';+HTTPPARA="REDIR",1'
+        use_ssl_string = ';+HTTPSSL=0'
+        if use_ssl:
+            use_ssl_string = ';+HTTPSSL=1'
+        cmd = ('AT+HTTPINIT;'
+                '+HTTPPARA="CID",1'
+                ';+HTTPPARA="URL","' + url + '"' +
+                ';+HTTPPARA="CONTENT","application/json"' +
+                allow_redirection_string +
+                use_ssl_string)  # PUT
         if method == "GET":
-            cmd = 'AT+HTTPINIT;+HTTPPARA="CID",1;+HTTPPARA="URL","' + url + '"'
+            cmd = ('AT+HTTPINIT;+HTTPPARA="CID",1;+HTTPPARA="URL","' + url + '"'
+                + allow_redirection_string +
+                use_ssl_string)  # GET
         r = self.command_ok(cmd)
         if not r:
             self.command('AT+HTTPTERM\n')
