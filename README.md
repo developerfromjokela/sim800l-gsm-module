@@ -41,6 +41,8 @@ Disabling the serial console login is needed in order to enable communication be
 
 ## API Documentation
 
+Tested with SIM800L firmware Revision:[1418B05SIM800L24](https://github.com/geekmatic/SIM800_firmware_updates).
+
 #### `sim800l = SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
 Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
 - `port`: port name
@@ -213,6 +215,10 @@ Automatically open and close the HTTP session, resetting errors.
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned data (as string)
 
+[Note](https://github.com/ostaquet/Arduino-SIM800L-driver/issues/33#issuecomment-761763635): The embedded IP stack of the SIM800L only supports SSL2, SSL3 and TLS 1.0. These cryptographic protocols are considered deprecated for most of web browsers and the connection will be denied by modern backend (i.e. AWS). This will typically lead to an error 605 or 606 when you establish an HTTPS connection.
+
+The AWS REST API supports TLS 1.2 and TLS 1.0. The latter can be selected when adding a custom domain (in this case, the Security policy can be selected). There is no possibility to select TLS 1.0 for the default endpoint provided by AWS. The AWS API Gateway doesn't support unencrypted (HTTP) endpoints.
+
 #### `internet_sync_time(time_server='193.204.114.232', time_zone_quarter=4, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and sync the internal RTC with
 the local time returned by the NTP time server (Network Time Protocol).
@@ -283,10 +289,10 @@ It also fires `callback_msg()` and `callback_no_carrier()`.
 Return values:
 - `('GENERIC', None)`: no data received
 - `('GENERIC', data)`: received data is returned (`data` is a string)
-- `("HTTPACTION_PUT", False)`: HTTP PUT method with return code different from 200
-- `("HTTPACTION_PUT", number)`: number of returned characters of a successful HTTP PUT method
-- `("HTTPACTION_GET", False)`: HTTP GET method with return code different from 200
-- `("HTTPACTION_GET", number)`: number of returned characters of a successful HTTP GET method
+- `("HTTPACTION_PUT", False, size)`: invalid HTTP PUT method, with return code different from 200
+- `("HTTPACTION_PUT", True, size)`: valid HTTP PUT method; `size` is the number of returned characters
+- `("HTTPACTION_GET", False, size)`: invalid HTTP GET method, with return code different from 200
+- `("HTTPACTION_GET", True, size)`: valid HTTP GET method; `size` is the number of returned characters
 - `("CMTI", index_id)`: received SMS message with index `index_id`
 - `("NOCARRIER", None)`: "NO CARRIER" message detected
 - `("RING", None)`: "RING" message detected

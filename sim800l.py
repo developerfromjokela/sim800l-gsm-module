@@ -31,6 +31,66 @@ import tty
 import gsm0338
 
 
+httpaction_method = {
+    "0": "GET",
+    "1": "PUT",
+    "2": "HEAD",
+    "3": "DELETE",
+    "X": "Unknown"
+}
+
+httpaction_status_codes = {
+    "000": "Unknown HTTPACTION error",
+    "100": "Continue",
+    "101": "Switching Protocols",
+    "200": "OK",
+    "201": "Created",
+    "202": "Accepted",
+    "203": "Non-Authoritative Information",
+    "204": "No Content",
+    "205": "Reset Content",
+    "206": "Partial Content",
+    "300": "Multiple Choices",
+    "301": "Moved Permanently",
+    "302": "Found",
+    "303": "See Other",
+    "304": "Not Modified",
+    "305": "Use Proxy",
+    "307": "Temporary Redirect",
+    "400": "Bad Request",
+    "401": "Unauthorized",
+    "402": "Payment Required",
+    "403": "Forbidden",
+    "404": "Not Found",
+    "405": "Method Not Allowed",
+    "406": "Not Acceptable",
+    "407": "Proxy Authentication Required",
+    "408": "Request Time-out",
+    "409": "Conflict",
+    "410": "Gone",
+    "411": "Length Required",
+    "412": "Precondition Failed",
+    "413": "Request Entity Too Large",
+    "414": "Request-URI Too Large",
+    "415": "Unsupported Media Type",
+    "416": "Requested range not satisfiable",
+    "417": "Expectation Failed",
+    "500": "Internal Server Error",
+    "501": "Not Implemented",
+    "502": "Bad Gateway",
+    "503": "Service Unavailable",
+    "504": "Gateway Time-out",
+    "505": "HTTP Version not supported",
+    "600": "Not HTTP PDU",
+    "601": "Network Error",
+    "602": "No memory",
+    "603": "DNS Error",
+    "604": "Stack Busy",
+    "605": "SSL failed to establish channels",
+    "606": "SSL fatal alert message with immediate termination of the connection"
+}
+
+
 def convert_to_string(buf):
     """
     Convert gsm03.38 bytes to string
@@ -199,12 +259,21 @@ class SIM800L:
         """
         return self.command('ATI\n')
 
-    def get_hw_revision(self):
+    def get_hw_revision(self, method=0):
         """
         Get the SIM800 GSM module hw revision
         :return: string
         """
-        return self.command('AT+CGMR\n')
+        if method == 2:
+            return self.command('AT+GMR\n')
+        firmware = self.command('AT+CGMR\n')
+        if method == 1:
+            logging.info("Firmware version: R%s.%s",
+                firmware[9:11], firmware[11:13])
+            logging.info("Device: %s", firmware[16:23])
+            logging.info("Rel: %s", firmware[13:16])
+            logging.info("Hardware Model type: %s", firmware[23:])
+        return firmware
 
     def get_serial_number(self):
         """
@@ -526,6 +595,63 @@ class SIM800L:
             logging.debug("SIM800L - IP Address: %s", ip_address)
         return ip_address
 
+    def query_ip_address(self,
+            url=None,
+            apn=None,
+            http_timeout=10,
+            keep_session=False):
+        ip_address = self.connect_gprs(apn=apn)
+        """
+        Connect to the bearer, get the IP address and query an internet domain
+        name, getting the IP address.
+        Automatically perform the full PDP context setup.
+        Disconnect the bearer at the end (unless keep_session = True)
+        Reuse the IP session if an IP address is found active.
+        :param url: internet domain name to be queried
+        :param http_timeout: timeout in seconds
+        :param keep_session: True to keep the PDP context active at the end
+        :return: False if error, otherwise the returned IP address (string)
+        """
+        r = self.command('AT+CIFSR\n')
+        if r == 'ERROR':
+            if ip_address is False:
+                if not keep_session:
+                    self.disconnect_gprs()
+                return False
+            if not self.command_ok('AT+CSTT="' + apn + '";+CIICR'):
+                self.command('AT+CIPSHUT\n')
+                if not keep_session:
+                    self.disconnect_gprs()
+                return False
+        logging.info("SIM800L - IP Address: %s", self.command('AT+CIFSR\n'))
+        cmd = 'AT+CDNSGIP="' + url + '"'
+        if not self.command_ok(cmd):
+            logging.error("SIM800L - error while querying DNS")
+            self.command('AT+CIPSHUT\n')
+            if not keep_session:
+                self.disconnect_gprs()
+            return False
+        expire = time.monotonic() + http_timeout
+        s = self.check_incoming()
+        while time.monotonic() < expire:
+            if s[0] == 'GENERIC' and s[1] and s[1].startswith('+CDNSGIP: '):
+                break
+            time.sleep(0.5)
+            s = self.check_incoming()
+        ret = False
+        if not s or s[0] != 'GENERIC' or (s[0] == 'GENERIC' and s[1] and not s[1].startswith('+CDNSGIP: ')):
+            logging.error("SIM800L - error while querying DNS: %s", s)
+            self.command('AT+CIPSHUT\n')
+            if not keep_session:
+                self.disconnect_gprs()
+            return False
+        dns = s[1].split()[1]
+        logging.info("DNS: %s", dns)
+        self.command('AT+CIPSHUT\n')
+        if not keep_session:
+            self.disconnect_gprs()
+        return dns
+
     def internet_sync_time(self,
             time_server="193.204.114.232",  # INRiM NTP server
             time_zone_quarter=4,  # 1/4 = UTC+1
@@ -601,7 +727,8 @@ class SIM800L:
         :param data: input data used for the PUT method
         :param apn: APN name
         :param method: GET or PUT
-        :param use_ssl: True if using HTTPS, False if using HTTP
+        :param use_ssl: True if using HTTPS, False if using HTTP; note:
+            The SIM800L module only supports  SSL2, SSL3 and TLS 1.0.
         :param allow_redirection: True if HTTP redirection is allowed (e.g., if
             the server sends a redirect code (range 30x), the client will
             automatically send a new HTTP request)
@@ -699,20 +826,31 @@ class SIM800L:
             time.sleep(0.1)
             s = self.check_incoming()
         if s[0] != 'HTTPACTION_' + method:
-            logging.critical(
-                "SIM800L - Missing 'HTTPACTION' return message for '%s' method: %s", method, s)
+            logging.critical("SIM800L - Missing 'HTTPACTION' return message "
+                "for '%s' method: %s", method, s)
             self.command('AT+HTTPTERM\n')
             if not keep_session:
                 self.disconnect_gprs()
             return False
-        len_read = s[1]
+        valid = s[1]
+        len_read = s[2]
+        if len_read == 0:
+            logging.debug("SIM800L - no data to be retrieved: %s", s)
+        if not valid:
+            logging.debug("SIM800L - invalid request: %s", s)
+        if not valid or len_read == 0:
+            self.command('AT+HTTPTERM\n')
+            if not keep_session:
+                self.disconnect_gprs()
+            return False
         r = self.command('AT+HTTPREAD\n')
         params = r.split(':')
         if len(params) == 2 and params[0] == '+HTTPREAD' and params[1].strip().isnumeric():
             lr = int(params[1].strip())
             if len_read != lr:
                 logging.critical(
-                    "SIM800L - Different number of read characters: %d != %d", len_read, lr)
+                    "SIM800L - Different number of read characters: %d != %d",
+                        len_read, lr)
                 self.command('AT+HTTPTERM\n')
                 if not keep_session:
                     self.disconnect_gprs()
@@ -768,23 +906,30 @@ class SIM800L:
             logging.debug("SIM800L - read line: '%s'", buf)
             params = buf.split(',')
 
-            if params[0][0:14] == "+HTTPACTION: 1":
-                if params[1] != '200':
-                    logging.critical("SIM800L - HTTPACTION_PUT return code: %s", buf)
-                    return "HTTPACTION_PUT", False
-                if not params[2].strip().isnumeric():
-                    return "HTTPACTION_PUT", False
-                return "HTTPACTION_PUT", int(params[2])
-
-            elif params[0][0:14] == "+HTTPACTION: 0":
-                if params[1] not in ('200', '301'):
-                    logging.critical("SIM800L - HTTPACTION_GET return code: %s", buf)
-                    return "HTTPACTION_GET", False
+            if (len(params) == 3 and len(params[0]) == 14 and
+                    params[0].startswith("+HTTPACTION: ")):
+                valid = False
+                try:
+                    method = httpaction_method[params[0][-1]]
+                except KeyError:
+                    method = httpaction_method['X']
+                try:
+                    error_message = httpaction_status_codes[params[1]]
+                except KeyError:
+                    error_message = httpaction_status_codes['000']
+                if params[1] in ('200', '301'):
+                    valid = True
+                else:
+                    logging.critical(
+                        'SIM800L - HTTPACTION_' + method +
+                        ' return code: %s, %s="%s"',
+                        buf, params[1], error_message)
                 if params[1] == '301':
-                    logging.info("SIM800L - HTTPACTION_GET 301 Moved Permanently.")
+                    logging.info(
+                        "SIM800L - HTTPACTION_GET 301 Moved Permanently.")
                 if not params[2].strip().isnumeric():
-                    return "HTTPACTION_GET", False
-                return "HTTPACTION_GET", int(params[2])
+                    return "HTTPACTION_" + method, False, 0
+                return "HTTPACTION_" + method, valid, int(params[2])
 
             elif params[0][0:5] == "+CMTI":
                 self._msgid = int(params[1])
