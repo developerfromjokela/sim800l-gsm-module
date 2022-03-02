@@ -600,7 +600,6 @@ class SIM800L:
             apn=None,
             http_timeout=10,
             keep_session=False):
-        ip_address = self.connect_gprs(apn=apn)
         """
         Connect to the bearer, get the IP address and query an internet domain
         name, getting the IP address.
@@ -612,6 +611,7 @@ class SIM800L:
         :param keep_session: True to keep the PDP context active at the end
         :return: False if error, otherwise the returned IP address (string)
         """
+        ip_address = self.connect_gprs(apn=apn)
         r = self.command('AT+CIFSR\n')
         if r == 'ERROR':
             if ip_address is False:

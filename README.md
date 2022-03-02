@@ -231,6 +231,17 @@ Reuse the IP session if an IP address is found active.
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned date (datetime.datetime)
 
+#### `query_ip_address(url=None, apn=None, http_timeout=10, keep_session=False)`
+Connect to the bearer, get the IP address and query an internet domain
+name, getting the IP address.
+Automatically perform the full PDP context setup.
+Disconnect the bearer at the end (unless keep_session = `True`)
+Reuse the IP session if an IP address is found active.
+- `url`: internet domain name to be queried
+- `http_timeout`: timeout in seconds
+- `keep_session`: True to keep the PDP context active at the end
+ *return*: `False` if error, otherwise the returned IP address (string)
+
 #### `is_registered()`
 Check whether the SIM is Registered, home network
  *return*: Truse if registered, otherwise `False`
@@ -372,6 +383,11 @@ else:
 #### Sync time with internet
 ```python
 sim800l.internet_sync_time(apn="...", time_zone_quarter=...)
+```
+
+#### Query the DNS for an internet name
+```python
+sim800l.query_ip_address(url="httpbin.org", apn="...")
 ```
 
 #### Hard reset
