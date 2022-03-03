@@ -41,7 +41,9 @@ Disabling the serial console login is needed in order to enable communication be
 
 ## API Documentation
 
-Tested with SIM800L firmware Revision:[1418B05SIM800L24](https://github.com/geekmatic/SIM800_firmware_updates).
+Tested with SIM800L firmware Revision:[1418B05SIM800L24](https://github.com/geekmatic/SIM800_firmware_updates) (SIM800L R14.18, Build 05).
+
+SIM800 does not support AT+HTTPSSL on firmware release <R14.00 (e.g., 1308B08SIM800L16 -> SIM800L R13.08 Build 08).
 
 #### `sim800l = SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
 Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
@@ -199,7 +201,7 @@ Perform a hard reset of the SIM800 module through the RESET pin
 - `reset_gpio`: RESET pin
  *return*: `True` if the SIM is active after the reset, otherwise `False`
 
-#### `http(url="...", data="...", apn="...", method="...", use_ssl=True, allow_redirection=False, http_timeout=10, keep_session=False)`
+#### `http(url="...", data="...", apn="...", method="...", use_ssl=False, allow_redirection=False, http_timeout=10, keep_session=False)`
 Run the HTTP GET method or the HTTP PUT method and return retrieved data
 Automatically perform the full PDP context setup and close it at the end
 (use keep_session=True to keep the IP session active). Reuse the IP
@@ -209,7 +211,7 @@ Automatically open and close the HTTP session, resetting errors.
 - `data`: input data used for the PUT method
 - `apn`: APN name
 - `method`: "GET" or "PUT"
-- `use_ssl`: `True` if using HTTPS, `False` if using HTTP
+- `use_ssl`: `True` if using HTTPS, `False` if using HTTP (see note)
 - `allow_redirection`: `True` if HTTP redirection is allowed (e.g., if the server sends a redirect code (range 30x), the client will automatically send a new HTTP request)
 - `http_timeout`: timeout in seconds
 - `keep_session`: `True` to keep the PDP context active at the end
@@ -217,7 +219,7 @@ Automatically open and close the HTTP session, resetting errors.
 
 [Note](https://github.com/ostaquet/Arduino-SIM800L-driver/issues/33#issuecomment-761763635): The embedded IP stack of the SIM800L only supports SSL2, SSL3 and TLS 1.0. These cryptographic protocols are considered deprecated for most of web browsers and the connection will be denied by modern backend (i.e. AWS). This will typically lead to an error 605 or 606 when you establish an HTTPS connection.
 
-The AWS REST API supports TLS 1.2 and TLS 1.0. The latter can be selected when adding a custom domain (in this case, the Security policy can be selected). There is no possibility to select TLS 1.0 for the default endpoint provided by AWS. The AWS API Gateway doesn't support unencrypted (HTTP) endpoints.
+Note on SSL: using `use_ssl=True` is discouraged; setting a Python web server to support the SSL option of a SIM800L client module is not straight-forward (it is better to use an application encryption instead of SSL). The AWS REST API supports TLS 1.2 and TLS 1.0. The latter can be selected when adding a custom domain (in this case, the Security policy can be selected). There is no possibility to select TLS 1.0 for the default endpoint provided by AWS. The AWS API Gateway doesn't support unencrypted (HTTP) endpoints; to be able to connect an AWS Lambda (e.v. via AWS HTTP API Gateway), a separate proxy server is needed (e.g., a custom Python application in cloud), receiving non-SSL HTTP requests from the SIM800L module (possibly with application encryption) and forwarding them to the AWS Lambda HTTP API gateway via HTTPS.
 
 #### `internet_sync_time(time_server='193.204.114.232', time_zone_quarter=4, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and sync the internal RTC with

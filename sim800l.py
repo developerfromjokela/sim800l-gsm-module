@@ -513,6 +513,8 @@ class SIM800L:
         """
         logging.debug("SIM800L - Sending command '%s'", cmd)
         r = self.command(cmd + "\n")
+        if not r:
+            r = ""
         if r.strip() == "OK":
             return True
         if check_download and r.strip() == "DOWNLOAD":
@@ -537,7 +539,7 @@ class SIM800L:
 
     def get_ip(self):
         """
-        Get the local IP address of the PDP context
+        Get the IP address of the PDP context
         :return: IP address string
         """
         ip_address = None
@@ -564,7 +566,7 @@ class SIM800L:
 
     def connect_gprs(self, apn=None):
         """
-        Connect to the bearer and get the local IP address of the PDP context.
+        Connect to the bearer and get the IP address of the PDP context.
         Automatically perform the full PDP context setup.
         Reuse the IP session if an IP address is found active.
         :param apn: APN name
@@ -601,8 +603,8 @@ class SIM800L:
             http_timeout=10,
             keep_session=False):
         """
-        Connect to the bearer, get the local IP address and query an internet
-        domain name, getting the IP address.
+        Connect to the bearer, get the IP address and query an internet domain
+        name, getting the IP address.
         Automatically perform the full PDP context setup.
         Disconnect the bearer at the end (unless keep_session = True)
         Reuse the IP session if an IP address is found active.
@@ -659,9 +661,9 @@ class SIM800L:
             http_timeout=10,
             keep_session=False):
         """
-        Connect to the bearer, get the local IP address and sync the internal
-        RTC with the local time returned by the NTP time server (Network Time
-        Protocol). Automatically perform the full PDP context setup.
+        Connect to the bearer, get the IP address and sync the internal RTC with
+        the local time returned by the NTP time server (Network Time Protocol).
+        Automatically perform the full PDP context setup.
         Disconnect the bearer at the end (unless keep_session = True)
         Reuse the IP session if an IP address is found active.
         :param time_server: internet time server (IP address string)
@@ -713,7 +715,7 @@ class SIM800L:
              data=None,
              apn=None,
              method=None,
-             use_ssl=True,
+             use_ssl=False,
              allow_redirection=False,
              http_timeout=10,
              keep_session=False):
@@ -752,7 +754,7 @@ class SIM800L:
             allow_redirection_string = ';+HTTPPARA="REDIR",1'
         use_ssl_string = ';+HTTPSSL=0'
         if use_ssl:
-            use_ssl_string = ';+HTTPSSL=1'
+            use_ssl_string = ';+SSLOPT=0,0;+HTTPSSL=1'
         cmd = ('AT+HTTPINIT;'
                 '+HTTPPARA="CID",1'
                 ';+HTTPPARA="URL","' + url + '"' +
