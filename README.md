@@ -157,7 +157,7 @@ Get the IMSI
 
 #### `get_ip()`
 Get the IP address of the PDP context
- *return*: IP address string
+ *return*: valid IP address string if the bearer is connected, otherwise `None`
 
 #### `get_msgid()`
 Return the unsolicited notification of incoming SMS
@@ -201,21 +201,30 @@ Perform a hard reset of the SIM800 module through the RESET pin
 - `reset_gpio`: RESET pin
  *return*: `True` if the SIM is active after the reset, otherwise `False`
 
-#### `http(url="...", data="...", apn="...", method="...", use_ssl=False, allow_redirection=False, http_timeout=10, keep_session=False)`
+#### `http(url="...", data="...", apn="...", method="...", use_ssl=False, content_type="application/json", allow_redirection=False, http_timeout=10, keep_session=False)`
 Run the HTTP GET method or the HTTP PUT method and return retrieved data
 Automatically perform the full PDP context setup and close it at the end
 (use keep_session=True to keep the IP session active). Reuse the IP
 session if an IP address is found active.
 Automatically open and close the HTTP session, resetting errors.
 - `url`: URL
-- `data`: input data used for the PUT method
+- `data`: input data used for the PUT method (bytes; e.g., use `data="string".encode()`)
 - `apn`: APN name
 - `method`: "GET" or "PUT"
 - `use_ssl`: `True` if using HTTPS, `False` if using HTTP (see note)
+- `content_type`: (string) set the "Content-Type" field in the HTTP header
 - `allow_redirection`: `True` if HTTP redirection is allowed (e.g., if the server sends a redirect code (range 30x), the client will automatically send a new HTTP request)
 - `http_timeout`: timeout in seconds
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned data (as string)
+
+Sending data with zlib is allowed:
+
+```python
+import zlib
+body = zlib.compress('hello world'.encode())
+sim800l.http("...url...", method="PUT", content_type="zipped", data=body, apn="...")
+```
 
 [Note on SSL](https://github.com/ostaquet/Arduino-SIM800L-driver/issues/33#issuecomment-761763635): The embedded IP stack of the SIM800L only supports SSL2, SSL3 and TLS 1.0. These cryptographic protocols are considered deprecated for most of web browsers and the connection will be denied by modern backend (i.e. AWS). This will typically lead to an error 605 or 606 when you establish an HTTPS connection. Using `use_ssl=True` is discouraged; setting a Python web server to support the SSL option of a SIM800L client module is not straight-forward (it is better to use an application encryption instead of SSL). The AWS REST API supports TLS 1.2 and TLS 1.0. The latter can be selected when adding a custom domain (in this case, the Security policy can be selected). There is no possibility to select TLS 1.0 for the default endpoint provided by AWS. The AWS API Gateway doesn't support unencrypted (HTTP) endpoints; to be able to connect an AWS Lambda (e.v. via AWS HTTP API Gateway), a separate proxy server is needed (e.g., a custom Python application in cloud), receiving non-SSL HTTP requests from the SIM800L module (possibly with application encryption) and forwarding them to the AWS Lambda HTTP API gateway via HTTPS.
 
@@ -304,6 +313,8 @@ Return values:
 - `("HTTPACTION_PUT", True, size)`: valid HTTP PUT method; `size` is the number of returned characters
 - `("HTTPACTION_GET", False, size)`: invalid HTTP GET method, with return code different from 200
 - `("HTTPACTION_GET", True, size)`: valid HTTP GET method; `size` is the number of returned characters
+- `("IP", "ip address")`: bearer connected, received IP address
+- `("IP", None)`: Disconnected
 - `("CMTI", index_id)`: received SMS message with index `index_id`
 - `("NOCARRIER", None)`: "NO CARRIER" message detected
 - `("RING", None)`: "RING" message detected

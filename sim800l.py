@@ -29,6 +29,7 @@ from RPi import GPIO
 import termios
 import tty
 import gsm0338
+import zlib
 
 
 httpaction_method = {
@@ -540,21 +541,24 @@ class SIM800L:
     def get_ip(self):
         """
         Get the IP address of the PDP context
-        :return: IP address string
+        :return: valid IP address string if the bearer is connected,
+            otherwise `None`
         """
         ip_address = None
-        r = self.command('AT+SAPBR=2,1\n')
+        r = self.command('AT+SAPBR=2,1\n', lines=0)
+        expire = time.monotonic() + 2  # seconds
         s = self.check_incoming()
-        if s != ("OK", None):
-            logging.debug("SIM800L - Missing OK after SAPBR: %s", s)
-            return False
-        r1 = r.split(',')
-        r2 = r1[0].split(':')
-        ip_address0 = r1[2].replace('"', "")
-        if r2[0].strip() == '+SAPBR' and r2[1].strip() == "1" and r1[1].strip() == "1":
-            ip_address = ip_address0
-        if ip_address0 == '0.0.0.0':
-            logging.debug("SIM800L - NO IP Address: %s", ip_address0)
+        ip_address = None
+        while time.monotonic() < expire:
+            if s[0] == 'IP':
+                ip_address = s[1]
+                break
+            time.sleep(0.1)
+            s = self.check_incoming()
+        if not ip_address or ip_address == '0.0.0.0':
+            logging.debug("SIM800L - NO IP Address")
+            return None
+        logging.debug("SIM800L - Returned IP Address: %s", ip_address)
         return ip_address
 
     def disconnect_gprs(self, apn=None):
@@ -592,9 +596,9 @@ class SIM800L:
                 return False
             ip_address = self.get_ip()
             if not ip_address:
-                logging.error("SIM800L - Missing IP Address")
+                logging.error("SIM800L - Cannot connect bearer")
                 return False
-            logging.debug("SIM800L - IP Address: %s", ip_address)
+            logging.debug("SIM800L - Bearer connected")
         return ip_address
 
     def query_ip_address(self,
@@ -716,6 +720,7 @@ class SIM800L:
              apn=None,
              method=None,
              use_ssl=False,
+             content_type="application/json",
              allow_redirection=False,
              http_timeout=10,
              keep_session=False):
@@ -726,11 +731,13 @@ class SIM800L:
         session if an IP address is found active.
         Automatically open and close the HTTP session, resetting errors.
         :param url: URL
-        :param data: input data used for the PUT method
+        :param data: input data used for the PUT method (bytes)
         :param apn: APN name
         :param method: GET or PUT
         :param use_ssl: True if using HTTPS, False if using HTTP; note:
             The SIM800L module only supports  SSL2, SSL3 and TLS 1.0.
+        :param content_type: (string) set the "Content-Type" field in the HTTP
+            header.
         :param allow_redirection: True if HTTP redirection is allowed (e.g., if
             the server sends a redirect code (range 30x), the client will
             automatically send a new HTTP request)
@@ -758,7 +765,7 @@ class SIM800L:
         cmd = ('AT+HTTPINIT;'
                 '+HTTPPARA="CID",1'
                 ';+HTTPPARA="URL","' + url + '"' +
-                ';+HTTPPARA="CONTENT","application/json"' +
+                ';+HTTPPARA="CONTENT","' + content_type + '"' +
                 allow_redirection_string +
                 use_ssl_string)  # PUT
         if method == "GET":
@@ -797,8 +804,8 @@ class SIM800L:
                 if not keep_session:
                     self.disconnect_gprs()
                 return False
-            logging.debug("SIM800L - Writing '%s'", data)
-            self.ser.write((data + '\n').encode())
+            logging.debug("SIM800L - Writing data; length = %s", len_input)
+            self.ser.write(data + '\n'.encode())
             expire = time.monotonic() + http_timeout
             s = self.check_incoming()
             while s == ('GENERIC', None) and time.monotonic() < expire:
@@ -933,7 +940,14 @@ class SIM800L:
                     return "HTTPACTION_" + method, False, 0
                 return "HTTPACTION_" + method, valid, int(params[2])
 
-            elif params[0][0:5] == "+CMTI":
+            elif params[0].startswith("+SAPBR: "):
+                ip_address = params[2].replace('"', "")
+                if (params[0].split(':')[1].strip() == "1" and
+                        params[1].strip() == "1"):
+                    return "IP", ip_address
+                return "IP", None
+
+            elif params[0].startswith("+CMTI"):
                 self._msgid = int(params[1])
                 if self.msg_action:
                     self.msg_action()
@@ -943,7 +957,7 @@ class SIM800L:
                 self.no_carrier_action()
                 return "NOCARRIER", None
 
-            elif params[0] == "RING" or params[0][0:5] == "+CLIP":
+            elif params[0] == "RING" or params[0].startswith("+CLIP"):
                 # @todo handle
                 return "RING", None
 
