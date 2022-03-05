@@ -45,6 +45,8 @@ Tested with SIM800L firmware Revision:[1418B05SIM800L24](https://github.com/geek
 
 SIM800 does not support AT+HTTPSSL on firmware release <R14.00 (e.g., 1308B08SIM800L16 -> SIM800L R13.08 Build 08).
 
+---
+
 #### `sim800l = SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
 Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
 - `port`: port name
