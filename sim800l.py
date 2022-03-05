@@ -3,8 +3,8 @@
 ###########################################################################
 # Driver for SIM800L module (using AT commands)
 # Running on Raspberry Pi
-# Based on https://github.com/jakhax/raspberry-pi-sim800l-gsm-module with
-# totally revised code and many enhancements.
+# Based on https://github.com/jakhax/raspberry-pi-sim800l-gsm-module
+# (marked as "legacy code" where not yet improved) with many enhancements.
 ###########################################################################
 
 """
@@ -639,20 +639,21 @@ class SIM800L:
             return False
         expire = time.monotonic() + http_timeout
         s = self.check_incoming()
+        dns = False
         while time.monotonic() < expire:
-            if s[0] == 'GENERIC' and s[1] and s[1].startswith('+CDNSGIP: '):
+            if s[0] == 'DNS':
+                if not s[1]:
+                    logging.error(
+                        "SIM800L - error while querying DNS: %s", s[2])
+                    self.command('AT+CIPSHUT\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+                dns = s[1]
+                logging.info("DNS: %s", dns)
                 break
-            time.sleep(0.5)
+            time.sleep(0.1)
             s = self.check_incoming()
-        ret = False
-        if not s or s[0] != 'GENERIC' or (s[0] == 'GENERIC' and s[1] and not s[1].startswith('+CDNSGIP: ')):
-            logging.error("SIM800L - error while querying DNS: %s", s)
-            self.command('AT+CIPSHUT\n')
-            if not keep_session:
-                self.disconnect_gprs()
-            return False
-        dns = s[1].split()[1]
-        logging.info("DNS: %s", dns)
         self.command('AT+CIPSHUT\n')
         if not keep_session:
             self.disconnect_gprs()
@@ -688,28 +689,21 @@ class SIM800L:
             logging.error("SIM800L - AT+CNTP did not return OK.")
         expire = time.monotonic() + http_timeout
         s = self.check_incoming()
-        while time.monotonic() < expire:
-            if s[0] == 'GENERIC' and s[1] and s[1].startswith('+CNTP: '):
-                break
-            time.sleep(0.5)
-            s = self.check_incoming()
         ret = False
-        if not s or s[0] != 'GENERIC' or (s[0] == 'GENERIC' and s[1] and not s[1].startswith('+CNTP: ')):
-            logging.error("SIM800L - Sync time generic error")
-        elif s[1] == '+CNTP: 1':
+        while time.monotonic() < expire:
+            if s[0] == 'NTP':
+                if not s[1]:
+                    logging.error("SIM800L - Sync time error %s", s[2])
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+                ret = True
+                break
+            time.sleep(0.1)
+            s = self.check_incoming()
+        if ret:
             logging.debug("SIM800L - Network time sync successful")
             ret = self.get_date()
-        else:
-            if s[1] == '+CNTP: 61':
-                    logging.error("SIM800L - Sync time network error")
-            elif s[1] == '+CNTP: 62':
-                logging.error("SIM800L - Sync time DNS resolution error")
-            elif s[1] == '+CNTP: 63':
-                logging.error("SIM800L - Sync time connection error")
-            elif s[1] == '+CNTP: 64':
-                logging.error("SIM800L - Sync time service response error")
-            elif s[1] == '+CNTP: 65':
-                logging.error("SIM800L - Sync time service response timeout")
         if not keep_session:
             self.disconnect_gprs()
         return ret
@@ -900,7 +894,7 @@ class SIM800L:
 
     def check_incoming(self):
         """
-        Check incoming data from the module
+        Check incoming data from the module, decoding messages
         :return: tuple
         """
         buf = None
@@ -915,6 +909,7 @@ class SIM800L:
             logging.debug("SIM800L - read line: '%s'", buf)
             params = buf.split(',')
 
+            # +HTTPACTION (HTTP GET and PUT methods)
             if (len(params) == 3 and len(params[0]) == 14 and
                     params[0].startswith("+HTTPACTION: ")):
                 valid = False
@@ -940,6 +935,7 @@ class SIM800L:
                     return "HTTPACTION_" + method, False, 0
                 return "HTTPACTION_" + method, valid, int(params[2])
 
+            # +SAPBR (IP address)
             elif params[0].startswith("+SAPBR: "):
                 ip_address = params[2].replace('"', "")
                 if (params[0].split(':')[1].strip() == "1" and
@@ -947,23 +943,75 @@ class SIM800L:
                     return "IP", ip_address
                 return "IP", None
 
+            # +CMTI (legacy code, partially revised) fires callback_msg()
             elif params[0].startswith("+CMTI"):
                 self._msgid = int(params[1])
                 if self.msg_action:
                     self.msg_action()
                 return "CMTI", self._msgid
 
+            # ERROR
+            elif params[0] == "ERROR":
+                return "ERROR", None
+
+            # NO CARRIER (legacy code, partially revised) fires callback_no_carrier()
             elif params[0] == "NO CARRIER":
                 self.no_carrier_action()
                 return "NOCARRIER", None
 
+            # +CDNSGIP (DNS query)
+            elif params[0].startswith('+CDNSGIP: '):
+                if params[0].split(':')[1].strip() != '1':
+                    if params[1] == '8':
+                        return "DNS", None, "DNS_COMMON_ERROR"
+                    elif params[1] == '3':
+                        return "DNS", None, "DNS_NETWORK_ERROR"
+                    else:
+                        return "DNS", None, "DNS_UNKNOWN_ERROR" + params[1]
+                dns = params[2].replace('"', '').strip()
+                logging.info("DNS: %s", dns)
+                if len(params) > 3:
+                    return "DNS", dns, params[3].replace('"', '').strip()
+                else:
+                    return "DNS", dns, params[1].replace('"', '').strip()
+
+            # +CNTP (NTP sync)
+            elif params[0].startswith('+CNTP: '):
+                if params[0] == '+CNTP: 1':
+                    logging.debug("SIM800L - Network time sync successful")
+                    return "NTP", self.get_date(), 0
+                elif params[0] == '+CNTP: 61':
+                    logging.error("SIM800L - Sync time network error")
+                    return "NTP", None, 61
+                elif params[0] == '+CNTP: 62':
+                    logging.error("SIM800L - Sync time DNS resolution error")
+                    return "NTP", None, 62
+                elif params[0] == '+CNTP: 63':
+                    logging.error("SIM800L - Sync time connection error")
+                    return "NTP", None, 63
+                elif params[0] == '+CNTP: 64':
+                    logging.error("SIM800L - Sync time service response error")
+                    return "NTP", None, 64
+                elif params[0] == '+CNTP: 65':
+                    logging.error(
+                        "SIM800L - Sync time service response timeout")
+                    return "NTP", None, 65
+                else:
+                    logging.error(
+                        "SIM800L - Sync time service - Unknown error code '%s'",
+                        params[0])
+                    return "NTP", None, 1
+
+            # +CLIP (legacy code)
             elif params[0] == "RING" or params[0].startswith("+CLIP"):
                 # @todo handle
                 return "RING", None
 
+            # OK
             elif buf.strip() == "OK":
                 return "OK", None
 
+            # DOWNLOAD
             elif buf.strip() == "DOWNLOAD":
                 return "DOWNLOAD", None
 

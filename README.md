@@ -94,16 +94,20 @@ sim800l.command("AT+CCLK?\n", lines=0)
 expire = time.monotonic() + 2  # seconds
 sequence = ""
 s = sim800l.check_incoming()
-while s != ('GENERIC', None) and time.monotonic() < expire:
+date = None
+while time.monotonic() < expire:
     if s[0] == 'GENERIC' and s[1] and s[1].startswith('+CCLK: "'):
-        print("Date:", s[1].split('"')[1])
+        date = s[1].split('"')[1]
         sequence += "D"
     if s == ('OK', None):
         sequence += "O"
+    if sequence == "DO":
+        print("Date:", date)
+        break
     time.sleep(0.1)
     s = sim800l.check_incoming()
 
-if sequence != "DO":
+if not date:
     print("Error")
 ```
 
@@ -141,7 +145,7 @@ Get the ICCID
 
 #### `get_date()`
 Return the clock date available in the module
- *return*: datetime.datetime
+ *return*: `datetime.datetime`
 
 #### `get_flash_id()`
 Get the SIM800 GSM module flash ID
@@ -218,7 +222,7 @@ Automatically open and close the HTTP session, resetting errors.
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned data (as string)
 
-Sending data with zlib is allowed:
+Sending data with [zlib](https://docs.python.org/3/library/zlib.html) is allowed:
 
 ```python
 import zlib
@@ -226,7 +230,12 @@ body = zlib.compress('hello world'.encode())
 sim800l.http("...url...", method="PUT", content_type="zipped", data=body, apn="...")
 ```
 
-[Note on SSL](https://github.com/ostaquet/Arduino-SIM800L-driver/issues/33#issuecomment-761763635): The embedded IP stack of the SIM800L only supports SSL2, SSL3 and TLS 1.0. These cryptographic protocols are considered deprecated for most of web browsers and the connection will be denied by modern backend (i.e. AWS). This will typically lead to an error 605 or 606 when you establish an HTTPS connection. Using `use_ssl=True` is discouraged; setting a Python web server to support the SSL option of a SIM800L client module is not straight-forward (it is better to use an application encryption instead of SSL). The AWS REST API supports TLS 1.2 and TLS 1.0. The latter can be selected when adding a custom domain (in this case, the Security policy can be selected). There is no possibility to select TLS 1.0 for the default endpoint provided by AWS. The AWS API Gateway doesn't support unencrypted (HTTP) endpoints; to be able to connect an AWS Lambda (e.v. via AWS HTTP API Gateway), a separate proxy server is needed (e.g., a custom Python application in cloud), receiving non-SSL HTTP requests from the SIM800L module (possibly with application encryption) and forwarding them to the AWS Lambda HTTP API gateway via HTTPS.
+[Note on SSL](https://github.com/ostaquet/Arduino-SIM800L-driver/issues/33#issuecomment-761763635): The datasheets report that the embedded IP stack of the SIM800L only supports SSL2, SSL3 and TLS 1.0. These cryptographic protocols are deprecated for most of web browsers and the connection will be denied by a modern backend (i.e. AWS). This will typically lead to an error 605 or 606 when you establish an HTTPS connection. Some datasheets also report TLS 1.2 but this does not appear to be true with firmware Revision 1418B05SIM800L24.  Using `use_ssl=True` is discouraged; setting a Python web server to support the SSL option of a SIM800L client module is not straightforward (it is better to use an [application encryption](https://stackoverflow.com/a/55147077/10598800) instead of SSL). The AWS REST API supports TLS 1.2 and TLS 1.0. The latter can be selected when adding a custom domain (in this case, the Security policy can be selected), but has not been tested. There is no possibility to select TLS 1.0 for the default endpoint provided by AWS. The AWS API Gateway doesn't support unencrypted (HTTP) endpoints. To be able to connect an AWS Lambda (e.v. via AWS HTTP API Gateway), a separate proxy server is needed (e.g., a custom Python application in cloud), receiving non-SSL HTTP requests from the SIM800L module (possibly with application encryption) and forwarding them to the AWS Lambda HTTP API gateway via HTTPS.
+
+Notice also that, depending on the web server, a specific SSL certificate could be needed for a successful HTTPS connection; the SIM800L module has a limited support of SSL certificates and [installing an additional one](https://stackoverflow.com/questions/36996479/how-sim800-get-ssl-certificate
+) is not straightforfard.
+
+An additional problem is related to possible DNS errors when accessing endpoints. Using IP addresses is preferred.
 
 #### `internet_sync_time(time_server='193.204.114.232', time_zone_quarter=4, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and sync the internal RTC with
@@ -238,7 +247,7 @@ Reuse the IP session if an IP address is found active.
 - `time_zone_quarter`: time zone in quarter of hour
 - `http_timeout`: timeout in seconds
 - `keep_session`: `True` to keep the PDP context active at the end
- *return*: `False` if error, otherwise the returned date (datetime.datetime)
+ *return*: `False` if error, otherwise the returned date (`datetime.datetime`)
 
 #### `query_ip_address(url=None, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and query an internet domain
@@ -302,8 +311,8 @@ Decode GSM 03.38 encoded bytes, returning a string.
  *return*: UTF8 string
 
 #### `check_incoming()`
-Check incoming data from the module
-It also fires `callback_msg()` and `callback_no_carrier()`.
+Internal function, used to check incoming data from the SIM800L module, decoding messages.
+It also fires the functions configured with `callback_msg()` and `callback_no_carrier()`.
  *return*: tuple
 
 Return values:
@@ -320,6 +329,11 @@ Return values:
 - `("RING", None)`: "RING" message detected
 - `("OK", None)`: "OK" message detected
 - `("DOWNLOAD", None)`: "DOWNLOAD" message detected
+- `("ERROR", None)`: "ERROR" message detected
+- `("DNS", None, error)`: DNS error message
+- `("DNS", dns1, dns2)`: IP address and FQDN retrieved from the DNS
+- `("NTP", None, error)`: NTP query error
+- `("NTP", date, 0)`: Successful NTP query; `date` is `datetime.datetime` format
 
 Usage sample 1:
 ```python
@@ -425,6 +439,8 @@ print(sim800l.http("httpbin.org/ip", method="GET", apn="..."))
 print(sim800l.http("httpbin.org/get", method="GET", use_ssl=False, apn="..."))  # HTTP
 print(sim800l.http("httpbin.org/get", method="GET", apn="..."))  # HTTPS
 ```
+
+Note: `httpbin.org` succeeds with HTTPS because supporting old version of SSL prtocols. Most sites fail with HTTPS.
 
 #### HTTP PUT sample
 ```python
