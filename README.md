@@ -444,8 +444,8 @@ Note: `httpbin.org` succeeds with HTTPS because supporting old version of SSL pr
 
 #### HTTP PUT sample
 ```python
-print(sim800l.http("httpbin.org/post", data='{"name","abc"}', method="PUT", apn="..."))  # HTTPS
-print(sim800l.http("httpbin.org/post", data='{"name","abc"}', method="PUT", use_ssl=False, apn="..."))  # HTTP
+print(sim800l.http("httpbin.org/post", data='{"name","abc"}'.encode(), method="PUT", apn="..."))  # HTTPS
+print(sim800l.http("httpbin.org/post", data='{"name","abc"}'.encode(), method="PUT", use_ssl=False, apn="..."))  # HTTP
 ```
 
 #### Read the n-th SMS
