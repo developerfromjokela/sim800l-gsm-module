@@ -51,9 +51,13 @@ Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
 - `baudrate`: baudrate in bps
 - `timeout`: timeout in seconds
 
+---
+
 #### `check_sim()`
 Check whether the SIM card has been inserted.
  *return*: `True` if the SIM is inserted, otherwise `False`
+
+---
 
 #### `command(cmdstr, lines=1, waitfor=500, msgtext=None, flush_input=True)`
 Executes an AT command. A newline must be added at the end of the AT command (e.g., `sim800l.command("AT+CCLK?\n", lines=-1)`).
@@ -111,6 +115,8 @@ if not date:
     print("Error")
 ```
 
+---
+
 #### `command_ok(cmd, check_download=False, check_error=False, cmd_timeout=10)`
 Send AT command to the device and check that the return sting is OK
 - `cmd`: AT command
@@ -119,6 +125,8 @@ Send AT command to the device and check that the return sting is OK
 - `cmd_timeout`: timeout in seconds
  *return*: `True` = OK received, `False` = OK not received. If check_error, can return `ERROR`; if check_download, can return `DOWNLOAD`
 
+---
+
 #### `connect_gprs(apn=None)`
 Connect to the bearer and get the IP address of the PDP context.
 Automatically perform the full PDP context setup.
@@ -126,84 +134,124 @@ Reuse the IP session if an IP address is found active.
 - `apn`: APN name
  *return*: `False` if error, otherwise return the IP address (as string)
 
+---
+
 #### `delete_sms(index_id)`
 Delete the SMS message referred to the index
 - `index_id`: index in the SMS message list starting from 1
  *return*: `None`
 
+---
+
 #### `disconnect_gprs(apn=None)`
 Disconnect the bearer.
  *return*: `True` if succesfull, `False` if error
+
+---
 
 #### `get_battery_voltage()`
 Return the battery voltage in Volts
  *return*: floating (volts)
 
+---
+
 #### `get_ccid()`
 Get the ICCID
  *return*: string
+
+---
 
 #### `get_date()`
 Return the clock date available in the module
  *return*: `datetime.datetime`
 
+---
+
 #### `get_flash_id()`
 Get the SIM800 GSM module flash ID
  *return*: string
+
+---
 
 #### `get_hw_revision()`
 Get the SIM800 GSM module hw revision
  *return*: string
 
+---
+
 #### `get_imsi()`
 Get the IMSI
  *return*: string
+
+---
 
 #### `get_ip()`
 Get the IP address of the PDP context
  *return*: valid IP address string if the bearer is connected, otherwise `None`
 
+---
+
 #### `get_msgid()`
 Return the unsolicited notification of incoming SMS
  *return*: number
 
+---
+
 #### `get_msisdn()`
 Get the MSISDN subscriber number
  *return*:
+
+---
 
 #### `get_operator()`
 Display the current network operator that the handset is currently
 registered with.
  *return*: operator string
 
+---
+
 #### `get_operator_long()`
 Display a full list of network operator names.
  *return*: string
+
+---
 
 #### `get_serial_number()`
 Get the SIM800 GSM module serial number
  *return*: string
 
+---
+
 #### `get_service_provider()`
 Get the Get Service Provider Name stored inside the SIM
  *return*: string
+
+---
 
 #### `get_signal_strength()`
 Get the signal strength
  *return*: number; min = 3, max = 100
 
+---
+
 #### `get_temperature()`
 Get the SIM800 GSM module temperature in Celsius degrees
  *return*: string
+
+---
 
 #### `get_unit_name()`
 Get the SIM800 GSM module unit name
  *return*: string
 
+---
+
 #### `hard_reset(reset_gpio)`
 Perform a hard reset of the SIM800 module through the RESET pin
 - `reset_gpio`: RESET pin
  *return*: `True` if the SIM is active after the reset, otherwise `False`
+
+---
 
 #### `http(url="...", data="...", apn="...", method="...", use_ssl=False, content_type="application/json", allow_redirection=False, http_timeout=10, keep_session=False)`
 Run the HTTP GET method or the HTTP PUT method and return retrieved data
@@ -237,6 +285,8 @@ Notice also that, depending on the web server, a specific SSL certificate could 
 
 An additional problem is related to possible DNS errors when accessing endpoints. Using IP addresses is preferred.
 
+---
+
 #### `internet_sync_time(time_server='193.204.114.232', time_zone_quarter=4, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and sync the internal RTC with
 the local time returned by the NTP time server (Network Time Protocol).
@@ -249,6 +299,8 @@ Reuse the IP session if an IP address is found active.
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned date (`datetime.datetime`)
 
+---
+
 #### `query_ip_address(url=None, apn=None, http_timeout=10, keep_session=False)`
 Connect to the bearer, get the IP address and query an internet domain
 name, getting the IP address.
@@ -260,9 +312,13 @@ Reuse the IP session if an IP address is found active.
 - `keep_session`: True to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned IP address (string)
 
+---
+
 #### `is_registered()`
 Check whether the SIM is Registered, home network
  *return*: Truse if registered, otherwise `False`
+
+---
 
 #### `read_and_delete_all(index_id=1)`
 Read the message at position 1, otherwise delete all SMS messages, regardless the type (read, unread, sent, unsent, received).
@@ -273,15 +329,21 @@ available at other positions), the whole set of messages is deleted.
 Use `index_id=0` to delete all messages without trying to retrieve the one at position 1.
  *return*: text of the read message
 
+---
+
 #### `read_next_message(all_msg=False)`
 Read one message and then delete it. This function can be repeatedly called to read all stored/received messages one by one and delete them.
 - `all_msg`: `True` if no filter is used (read and unread messages).  Otherwise only the unread messages are returned.
  *return*: retrieved message text (string)
 
+---
+
 #### `read_sms(index_id)`
 Read the SMS message referred to the index_id position
 - `index_id`: index in the SMS message list starting from 1
  *return*: `None` if error, otherwise return a tuple including: MSISDN origin number, SMS date string, SMS time string, SMS text
+
+---
 
 #### `send_sms(destno, msgtext)`
 Send SMS message
@@ -289,26 +351,38 @@ Send SMS message
 - `msgtext`: Text message
  *return*: ‘OK’ if message is sent, otherwise ‘ERROR’
 
+---
+
 #### `serial_port()`
 Return the serial port (for direct debugging)
  *return*:
+
+---
 
 #### `set_date()`
 Set the Linux system date with the GSM time
  *return*: date string
 
+---
+
 #### `setup()`
 Run setup strings for the initial configuration of the SIM800 module
+
+---
 
 #### `sim800l.convert_gsm(string)`
 Encode `string` to bytes using the 3GPP TS 23.038 / ETSI GSM 03.38 codec.
 - `string`: UTF8 string
  *return*: gsm03.38 bytes
 
+---
+
 #### `sim800l.convert_to_string(buf)`
 Decode GSM 03.38 encoded bytes, returning a string.
 - `buf`: gsm03.38 bytes
  *return*: UTF8 string
+
+---
 
 #### `check_incoming()`
 Internal function, used to check incoming data from the SIM800L module, decoding messages.
@@ -341,28 +415,42 @@ if self.check_incoming() != ("OK", None):
     print("Error")
 ```
 
+---
+
 #### `get_clip()`
 (legacy code, not used)
+
+---
 
 #### `set_charset_hex()`
 Set the module to the HEX character set (only hexadecimal values from 00 to FF)
 
+---
+
 #### `set_charset_ira()`
 Set the module to the International reference alphabet (ITU-T T.50) character set
+
+---
 
 #### `callback_incoming(function)`
 (legacy code, not used)
 - `function`: Python function with no args
+
+---
 
 #### `callback_msg(function)`
 (legacy code)
 Configure a callback function, fired when `check_incoming()` receives a message (`+CMTI` returned, indicating new message received).
 - `function`: Python function with no args
 
+---
+
 #### `callback_no_carrier(function)`
 (legacy code)
 Configure a callback function, fired when `check_incoming()` receives "NO CARRIER".
 - `function`: Python function with no args
+
+---
 
 ## Usage examples
 
