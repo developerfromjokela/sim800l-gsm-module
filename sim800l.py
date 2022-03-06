@@ -714,6 +714,7 @@ class SIM800L:
              apn=None,
              method=None,
              use_ssl=False,
+             ua=None,
              content_type="application/json",
              allow_redirection=False,
              http_timeout=10,
@@ -730,6 +731,8 @@ class SIM800L:
         :param method: GET or PUT
         :param use_ssl: True if using HTTPS, False if using HTTP; note:
             The SIM800L module only supports  SSL2, SSL3 and TLS 1.0.
+        :param ua: User agent (string); is not set, the SIM800L default user
+            agent is used ("SIMCom_MODULE").
         :param content_type: (string) set the "Content-Type" field in the HTTP
             header.
         :param allow_redirection: True if HTTP redirection is allowed (e.g., if
@@ -756,9 +759,13 @@ class SIM800L:
         use_ssl_string = ';+HTTPSSL=0'
         if use_ssl:
             use_ssl_string = ';+SSLOPT=0,0;+HTTPSSL=1'
+        if ua:
+            ua_string = ';+HTTPPARA="UA","' + ua + '"'
+        else:
+            ua_string = ""
         cmd = ('AT+HTTPINIT;'
                 '+HTTPPARA="CID",1'
-                ';+HTTPPARA="URL","' + url + '"' +
+                ';+HTTPPARA="URL","' + url + '"' + ua_string +
                 ';+HTTPPARA="CONTENT","' + content_type + '"' +
                 allow_redirection_string +
                 use_ssl_string)  # PUT

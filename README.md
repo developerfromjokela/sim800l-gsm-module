@@ -255,7 +255,7 @@ Perform a hard reset of the SIM800 module through the RESET pin
 
 ---
 
-#### `http(url="...", data="...", apn="...", method="...", use_ssl=False, content_type="application/json", allow_redirection=False, http_timeout=10, keep_session=False)`
+#### `http(url="...", data="...", apn="...", method="...", use_ssl=False, ua=None, content_type="application/json", allow_redirection=False, http_timeout=10, keep_session=False)`
 Run the HTTP GET method or the HTTP PUT method and return retrieved data
 Automatically perform the full PDP context setup and close it at the end
 (use keep_session=True to keep the IP session active). Reuse the IP
@@ -266,11 +266,14 @@ Automatically open and close the HTTP session, resetting errors.
 - `apn`: APN name
 - `method`: "GET" or "PUT"
 - `use_ssl`: `True` if using HTTPS, `False` if using HTTP (see note)
+- `ua`: User agent (string); is not set, the SIM800L default user agent is used ("SIMCOM_MODULE").
 - `content_type`: (string) set the "Content-Type" field in the HTTP header
 - `allow_redirection`: `True` if HTTP redirection is allowed (e.g., if the server sends a redirect code (range 30x), the client will automatically send a new HTTP request)
 - `http_timeout`: timeout in seconds
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned data (as string)
+
+While the *Content type* header field can be set, the *Content encoding* is always null.
 
 Sending data with [zlib](https://docs.python.org/3/library/zlib.html) is allowed:
 
