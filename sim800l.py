@@ -416,8 +416,9 @@ class SIM800L:
         while self.ser.in_waiting and flush_input:
             flush = self.ser.readline()
             logging.debug("SIM800L - Flushing %s", flush)
-        logging.debug(
-            "SIM800L - Writing '%s'", cmdstr.replace("\n", "\\n").replace("\r", "\\r"))
+        logging.log(5,  # VERBOSE
+            "SIM800L - Writing '%s'",
+            cmdstr.replace("\n", "\\n").replace("\r", "\\r"))
         self.ser.write(convert_gsm(cmdstr))
         if lines == 0:
             return
@@ -452,7 +453,7 @@ class SIM800L:
                 if not buf == '' and not buf == 'OK' and not buf.startswith(
                         '+CMTI: "SM",'):
                     self.savbuf += buf + '\n'
-        logging.debug("SIM800L - Returning '%s'", result)
+        logging.log(5, "SIM800L - Returning '%s'", result)  # VERBOSE
         return result
 
     def send_sms(self, destno, msgtext):
