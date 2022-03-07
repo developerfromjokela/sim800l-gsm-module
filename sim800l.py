@@ -183,6 +183,8 @@ class SIM800L:
         :return: Truse if registered, otherwise False
         """
         date_string = self.command('AT+CREG?\n')
+        if not date_string:
+            return False
         logging.debug("SIM800L - date_string: %s", date_string)
         registered = re.sub(r'^\+CREG: (\d*),(\d*)$', r"\2", date_string)
         if registered == "1" or registered == "5":
@@ -774,6 +776,14 @@ class SIM800L:
                 + allow_redirection_string +
                 use_ssl_string)  # GET
         r = self.command_ok(cmd)
+        if not r:
+            self.command('AT+HTTPTERM\n')
+            r = self.command_ok(cmd)
+            if not r:
+                if not keep_session:
+                    self.disconnect_gprs()
+                return False
+        r = self.command_ok('AT+IFC=0,0')  # disable flow contol
         if not r:
             self.command('AT+HTTPTERM\n')
             r = self.command_ok(cmd)
