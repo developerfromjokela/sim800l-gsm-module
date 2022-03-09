@@ -45,6 +45,13 @@ Tested with SIM800L firmware Revision:[1418B05SIM800L24](https://github.com/geek
 
 SIM800 does not support AT+HTTPSSL on firmware release <R14.00 (e.g., 1308B08SIM800L16 -> SIM800L R13.08 Build 08).
 
+For debugging needs, logs can be set to the maximum level (verbose mode, tracing each request/response) with the following command:
+
+```python
+import logging
+logging.getLogger().setLevel(5)`
+```
+
 ---
 
 #### `sim800l = SIM800L(port='/dev/serial0', baudrate=115000, timeout=3.0)`
@@ -57,7 +64,7 @@ Class instantiation (using [pySerial](https://github.com/pyserial/pyserial))
 
 #### `check_sim()`
 Check whether the SIM card has been inserted.
- *return*: `True` if the SIM is inserted, otherwise `False`
+ *return*: `True` if the SIM is inserted, otherwise `False`. `None` in case of module error.
 
 ---
 
@@ -71,7 +78,7 @@ The first newline is discarded (if `lines` != 0).
 - `msgtext`: only to be used when sending SMS messages, it includes the SMS text.
 - `flush_input`: `True` if residual input is flushed before sending the command. `False` disables flushing.
 
- *return*: the first line is returned (string); use `check_incoming()` to read the subsequent lines. `None` is returned when no data is received.
+ *return*: the first line is returned (string); use `check_incoming()` to read the subsequent lines. `None` is returned when no data is received (or module error).
 
 If `lines=0`, terminates just after writing text to the device (no bytes read; no return code, e.g. `None` returned). Note: `check_incoming()` can be subsequently used to read data from the device (see subsequent example).
 
@@ -120,12 +127,13 @@ if not date:
 ---
 
 #### `command_ok(cmd, check_download=False, check_error=False, cmd_timeout=10)`
-Send AT command to the device and check that the return sting is OK
+Send AT command to the device and check that the return sting is OK.
+Newline must not be put at the end of the string.
 - `cmd`: AT command
 - `check_download`: `True` if the “DOWNLOAD” return sting has to be checked
 - `check_error`: `True` if the “ERROR” return sting has to be checked
 - `cmd_timeout`: timeout in seconds
- *return*: `True` = OK received, `False` = OK not received. If check_error, can return `ERROR`; if check_download, can return `DOWNLOAD`
+ *return*: `True` = OK received, `False` = OK not received (or module error). If check_error, can return `ERROR`; if check_download, can return `DOWNLOAD`
 
 ---
 
@@ -134,7 +142,7 @@ Connect to the bearer and get the IP address of the PDP context.
 Automatically perform the full PDP context setup.
 Reuse the IP session if an IP address is found active.
 - `apn`: APN name
- *return*: `False` if error, otherwise return the IP address (as string)
+ *return*: `False` if error (including module error), otherwise return the IP address (as string)
 
 ---
 
@@ -153,43 +161,55 @@ Disconnect the bearer.
 
 #### `get_battery_voltage()`
 Return the battery voltage in Volts
- *return*: floating (volts)
+ *return*: floating (volts). `None` in case of module error.
+
+Example: 4.158
 
 ---
 
 #### `get_ccid()`
 Get the ICCID
- *return*: string
+ *return*: string; `None` in case of module error.
+
+Example: "1122334455667788990f"
 
 ---
 
 #### `get_date()`
-Return the clock date available in the module
- *return*: `datetime.datetime`
+Return the clock date available in the module.
+ *return*: `datetime.datetime`; `None` in case of module error.
+
+Example: "2022-03-09 19:59:31"
 
 ---
 
 #### `get_flash_id()`
 Get the SIM800 GSM module flash ID
- *return*: string
+ *return*: string; `None` in case of module error.
+
+Example: "Device Name:SERIAL§FLASH§MTKSIP§6261§SF§24§01"
 
 ---
 
 #### `get_hw_revision()`
 Get the SIM800 GSM module hw revision
- *return*: string
+ *return*: string; `None` in case of module error.
+
+Example: "Revision:1418B05SIM800L24"
 
 ---
 
 #### `get_imsi()`
 Get the IMSI
- *return*: string
+ *return*: string; `None` in case of module error.
+
+Example: "112233445566778"
 
 ---
 
 #### `get_ip()`
 Get the IP address of the PDP context
- *return*: valid IP address string if the bearer is connected, otherwise `None`
+ *return*: valid IP address string if the bearer is connected, otherwise `None` (e.g., module error).
 
 ---
 
@@ -201,57 +221,65 @@ Return the unsolicited notification of incoming SMS
 
 #### `get_msisdn()`
 Get the MSISDN subscriber number
- *return*:
+ *return*: string. `None` in case of module error.
 
 ---
 
 #### `get_operator()`
 Display the current network operator that the handset is currently
 registered with.
- *return*: operator string
+ *return*: operator string. `None` in case of module error. `False` in case of SIM error.
+
+Example: "Vodafone"
 
 ---
 
-#### `get_operator_long()`
+#### `get_operator_list()`
 Display a full list of network operator names.
- *return*: string
+ *return*: dictionary of "numeric: "name" fields; None in case of error.
 
 ---
 
 #### `get_serial_number()`
 Get the SIM800 GSM module serial number
- *return*: string
+ *return*: string; `None` in case of module error.
+
+Example: "866782042319455"
 
 ---
 
 #### `get_service_provider()`
 Get the Get Service Provider Name stored inside the SIM
- *return*: string
+ *return*: string. `None` in case of module error. `False` in case of SIM error.
 
 ---
 
 #### `get_signal_strength()`
 Get the signal strength
- *return*: number; min = 3, max = 100
+ *return*: number; min = 3, max = 100; `None` in case of module error.
+
+Example: 40.625
 
 ---
 
 #### `get_temperature()`
 Get the SIM800 GSM module temperature in Celsius degrees
- *return*: string
+ *return*: string; `None` in case of module error.
+
+Example: "24.21"
 
 ---
 
 #### `get_unit_name()`
 Get the SIM800 GSM module unit name
- *return*: string
+ *return*: string (e.g., "SIM800 R14.18"); `None` in case of module error.
 
 ---
 
 #### `hard_reset(reset_gpio)`
 Perform a hard reset of the SIM800 module through the RESET pin
 - `reset_gpio`: RESET pin
- *return*: `True` if the SIM is active after the reset, otherwise `False`
+ *return*: `True` if the SIM is active after the reset, otherwise `False`. `None` in case of module error.
 
 ---
 
@@ -304,6 +332,8 @@ Reuse the IP session if an IP address is found active.
 - `keep_session`: `True` to keep the PDP context active at the end
  *return*: `False` if error, otherwise the returned date (`datetime.datetime`)
 
+Example: "2022-03-09 20:38:09"
+
 ---
 
 #### `query_ip_address(url=None, apn=None, http_timeout=10, keep_session=False)`
@@ -315,13 +345,13 @@ Reuse the IP session if an IP address is found active.
 - `url`: internet domain name to be queried
 - `http_timeout`: timeout in seconds
 - `keep_session`: True to keep the PDP context active at the end
- *return*: `False` if error, otherwise the returned IP address (string)
+ *return*: `False` if error (`None` for module error), otherwise the returned IP address (string)
 
 ---
 
 #### `is_registered()`
 Check whether the SIM is Registered, home network
- *return*: Truse if registered, otherwise `False`
+ *return*: Truse if registered, otherwise `False`. . `None` in case of module error.
 
 ---
 
@@ -337,9 +367,9 @@ Use `index_id=0` to delete all messages without trying to retrieve the one at po
 ---
 
 #### `read_next_message(all_msg=False)`
-Read one message and then delete it. This function can be repeatedly called to read all stored/received messages one by one and delete them.
+Check messages, read one message and then delete it. This function can be repeatedly called to read all stored/received messages one by one and delete them.
 - `all_msg`: `True` if no filter is used (read and unread messages).  Otherwise only the unread messages are returned.
- *return*: retrieved message text (string)
+ *return*: retrieved message text (string), otherwise: `None` = no messages to read; `False` = read error (module error)
 
 ---
 
@@ -354,7 +384,7 @@ Read the SMS message referred to the index_id position
 Send SMS message
 - `destno`: MSISDN destination number
 - `msgtext`: Text message
- *return*: ‘OK’ if message is sent, otherwise ‘ERROR’
+ *return*: `True` if message is sent, otherwise `False`
 
 ---
 
@@ -366,12 +396,15 @@ Return the serial port (for direct debugging)
 
 #### `set_date()`
 Set the Linux system date with the GSM time
- *return*: date string
+ *return*: date string. `None` in case of module error.
+
+Example: "2022-03-09 20:10:54"
 
 ---
 
 #### `setup()`
 Run setup strings for the initial configuration of the SIM800 module
+ *return*: `True` if setup is successfully completed; `None` in case of module error.
 
 ---
 
@@ -413,6 +446,16 @@ Return values:
 - `("DNS", dns1, dns2)`: IP address and FQDN retrieved from the DNS
 - `("NTP", None, error)`: NTP query error
 - `("NTP", date, 0)`: Successful NTP query; `date` is `datetime.datetime` format
+- `("COPN", numeric, name)`: Operator number and name
+- `("CREG", numeric)`: Registration status
+- `("CTZV", tz1, tz2)`: Time Zone
+- `("PSUTTZ", year, month, day, hour, minute, second, tz1, tz2)`: time and time zone
+- `("DST", dst)`: Daylight Saving Time
+- `("RDY", None)`: Power procedure completed
+- `("CFUN", numeric)`: Phone functionality indication
+- `("PIN", pin)`: PIN
+- `("MSG", "Call Ready)`: Call ready
+- `("MSG", "SMS Ready)`: SMS ready
 
 Usage sample 1:
 ```python
@@ -429,11 +472,13 @@ if self.check_incoming() != ("OK", None):
 
 #### `set_charset_hex()`
 Set the module to the HEX character set (only hexadecimal values from 00 to FF)
+ *return*: "OK" if successful, otherwise `None` in case of module error.
 
 ---
 
 #### `set_charset_ira()`
 Set the module to the International reference alphabet (ITU-T T.50) character set
+ *return*: "OK" if successful, otherwise `None` in case of module error.
 
 ---
 
