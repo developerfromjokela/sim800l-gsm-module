@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-###########################################################################
+#############################################################################
 # Driver for SIM800L module (using AT commands)
-# Running on Raspberry Pi
-# Based on https://github.com/jakhax/raspberry-pi-sim800l-gsm-module
-# (marked as "legacy code" where not yet improved) with many enhancements.
-###########################################################################
+# Tested on Raspberry Pi
+# Based on https://github.com/jakhax/raspberry-pi-sim800l-gsm-module (marked
+# as "legacy code" where not yet improved) with many enhancements.
+#############################################################################
 
 """
 - python3.7/python3.9 (tested with these versions)
@@ -25,12 +25,14 @@ import re
 import logging
 from datetime import datetime
 import subprocess
-from RPi import GPIO
 import termios
 import tty
 import gsm0338
 import zlib
-
+try:
+    from RPi import GPIO
+except ModuleNotFoundError:
+    GPIO = None
 
 httpaction_method = {
     "0": "GET",
@@ -88,7 +90,7 @@ httpaction_status_codes = {
     "603": "DNS Error",
     "604": "Stack Busy",
     "605": "SSL failed to establish channels",
-    "606": "SSL fatal alert message with immediate termination of the connection"
+    "606": "SSL fatal alert message with immediate connection termination"
 }
 
 
@@ -413,16 +415,20 @@ class SIM800L:
 
     def hard_reset(self, reset_gpio):
         """
+        This function can only be used on a Raspberry Pi.
         Perform a hard reset of the SIM800 module through the RESET pin
         :param reset_gpio: RESET pin
         :return: True if the SIM is active after the reset, otherwise False
             None in case of module error.
         """
+        if not GPIO:
+            logging.critical("SIM800L - hard_reset() function not available")
+            return None
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(reset_gpio, GPIO.OUT, initial=GPIO.HIGH)
         GPIO.output(reset_gpio, GPIO.HIGH)
         GPIO.output(reset_gpio, GPIO.LOW)
-        time.sleep(0.1)
+        time.sleep(0.3)
         GPIO.output(reset_gpio, GPIO.HIGH)
         time.sleep(7)
         return self.check_sim()
@@ -819,7 +825,9 @@ class SIM800L:
             return False
         r = self.command('AT+HTTPREAD\n')
         params = r.split(':')
-        if len(params) == 2 and params[0] == '+HTTPREAD' and params[1].strip().isnumeric():
+        if (len(params) == 2 and
+                params[0] == '+HTTPREAD' and
+                params[1].strip().isnumeric()):
             lr = int(params[1].strip())
             if len_read != lr:
                 logging.critical(
@@ -835,7 +843,8 @@ class SIM800L:
             ret_data += self.ser.read(len_read).decode(
                 encoding='utf-8', errors='ignore')
         logging.debug(
-            "Returned data: '%s'", ret_data.replace("\n", "\\n").replace("\r", "\\r"))
+            "Returned data: '%s'",
+            ret_data.replace("\n", "\\n").replace("\r", "\\r"))
         r = self.check_incoming()
         if r != ("OK", None) and ret_data[-5:].strip() == 'OK':
             r = ("OK", None)
@@ -849,7 +858,8 @@ class SIM800L:
             return False
         if len(ret_data) != len_read:
             logging.warning(
-                "Length of returned data: %d. Expected: %d", len(ret_data), len_read)
+                "Length of returned data: %d. Expected: %d",
+                len(ret_data), len_read)
         r = self.command_ok('AT+HTTPTERM')
         if not r:
             self.command('AT+HTTPTERM\n')
@@ -1143,7 +1153,8 @@ class SIM800L:
                 second = params[5].strip()
                 tz1 = params[6].strip().replace('"', "")
                 tz2 = params[7].strip()
-                return "PSUTTZ", year, month, day, hour, minute, second, tz1, tz2
+                return (
+                    "PSUTTZ", year, month, day, hour, minute, second, tz1, tz2)
 
             # DST (Read Network Daylight Saving Time)
             elif params[0].startswith("DST: "):

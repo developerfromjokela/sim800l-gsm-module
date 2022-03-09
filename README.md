@@ -1,6 +1,6 @@
 # Raspberry Pi SIM800L GSM module
 
-SIM800L GSM module library for the Raspberry Pi.
+SIM800L GSM module library for Linux or Raspberry Pi systems.
 
 This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-module with many additions.
 
@@ -11,7 +11,7 @@ The backward compatibility with the original repo is still kept.
 > SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
 
 ## Hw Requirements
-- Raspberry Pi with [Raspberry Pi OS](https://en.wikipedia.org/wiki/Raspberry_Pi_OS) (this library has been tested with Buster and Bullseye).
+- Linux system with a UART serial port, or Raspberry Pi with [Raspberry Pi OS](https://en.wikipedia.org/wiki/Raspberry_Pi_OS) (this library has been tested with Buster and Bullseye).
 - [SIM800L GSM module](https://www.simcom.com/product/SIM800.html).
 - External power supply for the SIM800L (using the Raspberry Pi 5V power supply, a standard diode (1N4007) with voltage drop of about 0.6 volts and a 2200 uF capacitor might work).
 
@@ -277,7 +277,8 @@ Get the SIM800 GSM module unit name
 ---
 
 #### `hard_reset(reset_gpio)`
-Perform a hard reset of the SIM800 module through the RESET pin
+Perform a hard reset of the SIM800 module through the RESET pin.
+This function can only be used on a Raspberry Pi.
 - `reset_gpio`: RESET pin
  *return*: `True` if the SIM is active after the reset, otherwise `False`. `None` in case of module error.
 
