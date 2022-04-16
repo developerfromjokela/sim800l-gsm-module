@@ -32,11 +32,11 @@ VERSIONFILE = "sim800l/__version__.py"
 
 def versions(pkg_name, site):
     url = 'https://' + site + '.python.org/pypi/' + pkg_name + '/json'
-    print(url)
+    print("Package " + pkg_name + ". Site + " URL:", url)
     try:
         releases = json.loads(request.urlopen(url).read())['releases']
     except Exception as e:
-        print("Error while getting data from URL '" + url + "': " + e)
+        print("Error while getting data from URL '" + url + "': " + repr(e))
         return []
     return sorted(releases, key=parse_version, reverse=True)
 
