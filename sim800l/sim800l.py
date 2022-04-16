@@ -646,7 +646,7 @@ class SIM800L:
             return False
         cmd = 'AT+CNTP="' + time_server + '",' + str(time_zone_quarter)
         if not self.command_ok(cmd):
-            logging.error("SIM800L - sync time did not return OK: %s", r)
+            logging.error("SIM800L - sync time did not return OK.")
         if not self.command_ok('AT+CNTP'):
             logging.error("SIM800L - AT+CNTP did not return OK.")
         expire = time.monotonic() + http_timeout
