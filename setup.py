@@ -32,6 +32,7 @@ VERSIONFILE = "sim800l/__version__.py"
 
 def versions(pkg_name, site):
     url = 'https://' + site + '.python.org/pypi/' + pkg_name + '/json'
+    print(url)
     try:
         releases = json.loads(request.urlopen(url).read())['releases']
     except Exception as e:
