@@ -1,31 +1,50 @@
 # Raspberry Pi SIM800L GSM module
 
-SIM800L GSM module library for Linux or Raspberry Pi systems.
+[SIM800L GSM module](https://www.simcom.com/product/SIM800.html) library for Linux systems like the Raspberry Pi.
 
-This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-module with many additions.
+This library interfaces the SIM800L GSM device and allows sending, receiving and deleting SMS messages, as well as performing HTTP GET/POST requests, synching/updating the RTC and getting other information from the module.
 
-It allows sending, receiving and deleting SMS messages, as well as performing HTTP GET/POST requests, synching/updating the RTC and getting other information from the module.
-
-The backward compatibility with the original repo is still kept.
-
-> SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  
+## Setup
 
 ## Hw Requirements
 - Linux system with a UART serial port, or Raspberry Pi with [Raspberry Pi OS](https://en.wikipedia.org/wiki/Raspberry_Pi_OS) (this library has been tested with Buster and Bullseye).
-- [SIM800L GSM module](https://www.simcom.com/product/SIM800.html).
 - External power supply for the SIM800L (using the Raspberry Pi 5V power supply, a standard diode (1N4007) with voltage drop of about 0.6 volts and a 2200 uF capacitor might work).
 
-## References
-- [AT Datasheet](https://microchip.ua/simcom/2G/SIM800%20Series_AT%20Command%20Manual_V1.12.pdf)
-- [Application notes](https://www.microchip.ua/simcom/?link=/2G/Application%20Notes)
-- [Specifications](https://simcom.ee/documents/?dir=SIM800L)
+### Installation
 
-Arduino:
-- https://github.com/vshymanskyy/TinyGSM
-- https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
+Check that the [Python](https://www.python.org/) version is 3.6 or higher (`python3 -V`), then install the *sim800l-gsm-module* with the following command:
 
+```shell
+python3 -m pip install sim800l-gsm-module
+```
 
-## Setup
+Prerequisite components: *pyserial*, *gsm0338*. All needed prerequisites are automatically installed with the package.
+
+Alternatively to the above mentioned installation method, the following steps allow installing the latest version from GitHub.
+
+- Optional preliminary configuration (if not already done):
+
+  ```shell
+  sudo apt-get update
+  sudo apt-get -y upgrade
+  sudo add-apt-repository universe # this is only needed if "sudo apt install python3-pip" fails
+  sudo apt-get update
+  sudo apt install -y python3-pip
+  python3 -m pip install --upgrade pip
+  sudo apt install -y git
+  ```
+
+- Run this command:
+
+```shell
+  python3 -m pip install git+https://github.com/Ircama/raspberry-pi-sim800l-gsm-module
+```
+
+To uninstall:
+
+```shell
+python3 -m pip uninstall -y sim800l-gsm-module
+```
 
 ### Hardware connection
 
@@ -38,6 +57,17 @@ Disabling the serial console login is needed in order to enable communication be
 - Open the terminal on your pi and run `sudo raspi-config` 
 - Select Interfaces → Serial 
 - Select No to the 1st prompt and Yes for the 2nd one.
+
+## Basic use
+
+Check [Usage examples](#usage-examples). Basic program:
+
+```python 
+from sim800l import SIM800L
+sim800l = SIM800L()
+sim800l.setup()
+print("Unit Name:", sim800l.get_unit_name())
+```
 
 ## API Documentation
 
@@ -576,10 +606,10 @@ msg = sim800l.read_next_message(all_msg=True)
 ```python
 print(sim800l.http("httpbin.org/ip", method="GET", apn="..."))
 print(sim800l.http("httpbin.org/get", method="GET", use_ssl=False, apn="..."))  # HTTP
-print(sim800l.http("httpbin.org/get", method="GET", apn="..."))  # HTTPS
+print(sim800l.http("httpbin.org/get", method="GET", use_ssl=True, apn="..."))  # HTTPS
 ```
 
-Note: `httpbin.org` succeeds with HTTPS because supporting old version of SSL prtocols. Most sites fail with HTTPS.
+Note: time ago `httpbin.org` succeeded with HTTPS because supporting an old SSL version. Curently the test fails with HTTPS.
 
 #### HTTP PUT sample
 ```python
@@ -608,3 +638,19 @@ sim800l.callback_msg(print_delete)
 while `True`:
     sim800l.check_incoming()
 ```
+
+## References
+- [AT Datasheet](https://microchip.ua/simcom/2G/SIM800%20Series_AT%20Command%20Manual_V1.12.pdf)
+- [Application notes](https://www.microchip.ua/simcom/?link=/2G/Application%20Notes)
+- [Specifications](https://simcom.ee/documents/?dir=SIM800L)
+
+Arduino:
+- https://github.com/vshymanskyy/TinyGSM
+- https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
+
+## History
+This library is a fork of https://github.com/jakhax/raspberry-pi-sim800l-gsm-module with many additions.
+
+The backward compatibility with the original repo is still kept.
+
+> SIM900/SIM800 are 2G only modems, make sure your provider supports 2G as it is already being phased out in a lot of areas around the world, else a 3G/4G modem like the SIM7100 / SIM5300 is warranted.  

@@ -16,10 +16,10 @@ from pkg_resources import parse_version
 
 ###########################################################################
 
-END_OF_INTRODUCTION = '# Installation'
+END_OF_INTRODUCTION = '## Setup'
 
 EPILOGUE = '''
-Full information and usage details at the [raspberry-pi-sim800l-gsm-module GitHub repository](https://github.com/Ircama/raspberry-pi-sim800l-gsm-module).
+Full information, installation notes, API reference and usage details at the [sim800l-gsm-module GitHub repository](https://github.com/Ircama/raspberry-pi-sim800l-gsm-module).
 '''
 
 DESCRIPTION = ("Raspberry Pi SIM800L GSM module")

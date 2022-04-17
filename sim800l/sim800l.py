@@ -3,18 +3,7 @@
 #############################################################################
 # Driver for SIM800L module (using AT commands)
 # Tested on Raspberry Pi
-# Based on https://github.com/jakhax/raspberry-pi-sim800l-gsm-module (marked
-# as "legacy code" where not yet improved) with many enhancements.
 #############################################################################
-
-"""
-- python3.7/python3.9 (tested with these versions)
-sudo apt-get update
-sudo apt-get -y upgrade
-python3 -m pip install --upgrade pip
-pip3 install pyserial
-pip3 install gsm0338
-"""
 
 import os
 import time
