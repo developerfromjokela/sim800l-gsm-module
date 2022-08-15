@@ -156,6 +156,15 @@ if not date:
 
 ---
 
+#### `command_data_ok(cmd, attempts=2)`
+Send AT command to the device, read the answer and then check the
+existence of the OK message. "cmd" shall not have the ending newline.
+- `cmd`: AT command
+- `attempts`: number of attempts before returning None or False
+ *return*: string in case of successful retrieval; otherwise None if module error or False if missing OK message
+
+---
+
 #### `command_ok(cmd, check_download=False, check_error=False, cmd_timeout=10, attempts=2)`
 Send AT command to the device and check that the return sting is OK.
 Newline must not be put at the end of the string.

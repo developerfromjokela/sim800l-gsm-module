@@ -1038,25 +1038,31 @@ class SIM800L:
 
     def command_data_ok(self,
                    cmd,
-                   check_download=False,
-                   check_error=False,
-                   cmd_timeout=10):
+                   attempts=2):
         """
         Send AT command to the device, read the answer and then check the
         existence of the OK message. "cmd" shall not have the ending newline.
         :param cmd: AT command
+        :param attempts: number of attempts before returning None or False
         :return: string in case of successful retrieval; otherwise None
             if module error or False if missing OK message
         """
-        answer = self.command(cmd + '\n')
-        if not answer:
-            return None
-        r = self.check_incoming()
-        if r != ("OK", None):
-            logging.error(
-                "SIM800L - wrong '" + cmd + "' return message: %s", r)
-            return False
-        return answer
+        while attempts:
+            answer = self.command(cmd + '\n')
+            if not answer:
+                if attempts > 1:
+                    attempts -= 1
+                    continue
+                return None
+            r = self.check_incoming()
+            if r != ("OK", None):
+                if attempts > 1:
+                    attempts -= 1
+                    continue
+                logging.error(
+                    "SIM800L - wrong '" + cmd + "' return message: %s", r)
+                return False
+            return answer
 
     def check_incoming(self):
         """
