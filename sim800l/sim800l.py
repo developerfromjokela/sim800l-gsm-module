@@ -82,6 +82,7 @@ httpaction_status_codes = {
     "606": "SSL fatal alert message with immediate connection termination"
 }
 
+ATTEMPT_DELAY = 0.2
 
 def convert_to_string(buf):
     """
@@ -669,7 +670,8 @@ class SIM800L:
              content_type="application/json",
              allow_redirection=False,
              http_timeout=10,
-             keep_session=False):
+             keep_session=False,
+             attempts=2):
         """
         Run the HTTP GET method or the HTTP PUT method and return retrieved data
         Automatically perform the full PDP context setup and close it at the end
@@ -691,6 +693,7 @@ class SIM800L:
             automatically send a new HTTP request)
         :param http_timeout: timeout in seconds
         :param keep_session: True to keep the PDP context active at the end
+        :param attempts: number of attempts before returning False
         :return: False if error, otherwise the returned data (as string)
         """
         if url is None:
@@ -714,153 +717,175 @@ class SIM800L:
             ua_string = ';+HTTPPARA="UA","' + ua + '"'
         else:
             ua_string = ""
-        cmd = ('AT+HTTPINIT;'
-                '+HTTPPARA="CID",1'
-                ';+HTTPPARA="URL","' + url + '"' + ua_string +
-                ';+HTTPPARA="CONTENT","' + content_type + '"' +
-                allow_redirection_string +
-                use_ssl_string)  # PUT
-        if method == "GET":
-            cmd = ('AT+HTTPINIT;+HTTPPARA="CID",1;+HTTPPARA="URL","' + url + '"'
-                + allow_redirection_string +
-                use_ssl_string)  # GET
-        r = self.command_ok(cmd)
-        if not r:
-            self.command('AT+HTTPTERM\n')
+        while attempts:
+            cmd = ('AT+HTTPINIT;'
+                    '+HTTPPARA="CID",1'
+                    ';+HTTPPARA="URL","' + url + '"' + ua_string +
+                    ';+HTTPPARA="CONTENT","' + content_type + '"' +
+                    allow_redirection_string +
+                    use_ssl_string)  # PUT
+            if method == "GET":
+                cmd = ('AT+HTTPINIT;+HTTPPARA="CID",1;+HTTPPARA="URL","' +
+                    url + '"' + allow_redirection_string +
+                    use_ssl_string)  # GET
             r = self.command_ok(cmd)
             if not r:
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-        r = self.command_ok('AT+IFC=0,0')  # disable flow contol
-        if not r:
-            self.command('AT+HTTPTERM\n')
-            r = self.command_ok(cmd)
+                self.command('AT+HTTPTERM\n')
+                r = self.command_ok(cmd)
+                if not r:
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+            r = self.command_ok('AT+IFC=0,0')  # disable flow contol
             if not r:
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-        if method == "PUT":
-            if not data:
-                logging.critical("SIM800L - Null data paramether.")
                 self.command('AT+HTTPTERM\n')
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-            len_input = len(data)
-            cmd = 'AT+HTTPDATA=' + str(len_input) + ',' + str(
-                http_timeout * 1000)
-            r = self.command_ok(cmd, check_download=True, check_error=True)
-            if r == "ERROR":
-                logging.critical("SIM800L - AT+HTTPDATA returned ERROR.")
-                self.command('AT+HTTPTERM\n')
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-            if r != "DOWNLOAD":
-                logging.critical(
-                    "SIM800L - Missing 'DOWNLOAD' return message: %s", r)
-                self.command('AT+HTTPTERM\n')
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-            logging.debug("SIM800L - Writing data; length = %s", len_input)
-            self.ser.write(data + '\n'.encode())
+                r = self.command_ok(cmd)
+                if not r:
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+            if method == "PUT":
+                if not data:
+                    logging.critical("SIM800L - Null data parameter.")
+                    self.command('AT+HTTPTERM\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+                len_input = len(data)
+                cmd = 'AT+HTTPDATA=' + str(len_input) + ',' + str(
+                    http_timeout * 1000)
+                r = self.command_ok(cmd, check_download=True, check_error=True)
+                if r == "ERROR":
+                    logging.critical("SIM800L - AT+HTTPDATA returned ERROR.")
+                    self.command('AT+HTTPTERM\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+                if r != "DOWNLOAD":
+                    if attempts > 1:
+                        attempts -= 1
+                        time.sleep(ATTEMPT_DELAY)
+                        self.command('AT+HTTPTERM\n')
+                        continue
+                    logging.critical(
+                        "SIM800L - Missing 'DOWNLOAD' return message: %s", r)
+                    self.command('AT+HTTPTERM\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+                logging.debug("SIM800L - Writing data; length = %s", len_input)
+                self.ser.write(data + '\n'.encode())
+                expire = time.monotonic() + http_timeout
+                s = self.check_incoming()
+                while s == ('GENERIC', None) and time.monotonic() < expire:
+                    time.sleep(0.1)
+                    s = self.check_incoming()
+                if s != ("OK", None):
+                    self.command('AT+HTTPTERM\n')
+                    if attempts > 1:
+                        attempts -= 1
+                        time.sleep(ATTEMPT_DELAY)
+                        continue
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+                r = self.command_ok('AT+HTTPACTION=1')
+                if not r:
+                    self.command('AT+HTTPTERM\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+            if method == "GET":
+                r = self.command_ok('AT+HTTPACTION=0')
+                if not r:
+                    self.command('AT+HTTPTERM\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
             expire = time.monotonic() + http_timeout
             s = self.check_incoming()
-            while s == ('GENERIC', None) and time.monotonic() < expire:
+            while s[0] != 'HTTPACTION_' + method and time.monotonic() < expire:
                 time.sleep(0.1)
                 s = self.check_incoming()
-            if s != ("OK", None):
-                self.command('AT+HTTPTERM\n')
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-            r = self.command_ok('AT+HTTPACTION=1')
-            if not r:
-                self.command('AT+HTTPTERM\n')
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-        if method == "GET":
-            r = self.command_ok('AT+HTTPACTION=0')
-            if not r:
-                self.command('AT+HTTPTERM\n')
-                if not keep_session:
-                    self.disconnect_gprs()
-                return False
-        expire = time.monotonic() + http_timeout
-        s = self.check_incoming()
-        while s[0] != 'HTTPACTION_' + method and time.monotonic() < expire:
-            time.sleep(0.1)
-            s = self.check_incoming()
-        if s[0] != 'HTTPACTION_' + method:
-            logging.critical("SIM800L - Missing 'HTTPACTION' return message "
-                "for '%s' method: %s", method, s)
-            self.command('AT+HTTPTERM\n')
-            if not keep_session:
-                self.disconnect_gprs()
-            return False
-        valid = s[1]
-        len_read = s[2]
-        if len_read == 0:
-            logging.debug("SIM800L - no data to be retrieved: %s", s)
-        if not valid:
-            logging.debug("SIM800L - invalid request: %s", s)
-        if not valid or len_read == 0:
-            self.command('AT+HTTPTERM\n')
-            if not keep_session:
-                self.disconnect_gprs()
-            return False
-        r = self.command('AT+HTTPREAD\n')
-        params = r.split(':')
-        if (len(params) == 2 and
-                params[0] == '+HTTPREAD' and
-                params[1].strip().isnumeric()):
-            lr = int(params[1].strip())
-            if len_read != lr:
+            if s[0] != 'HTTPACTION_' + method:
+                if attempts > 1:
+                    attempts -= 1
+                    time.sleep(ATTEMPT_DELAY)
+                    self.command('AT+HTTPTERM\n')
+                    continue
                 logging.critical(
-                    "SIM800L - Different number of read characters: %d != %d",
-                        len_read, lr)
+                    "SIM800L - Missing 'HTTPACTION' return message "
+                    "for '%s' method: %s", method, s)
                 self.command('AT+HTTPTERM\n')
                 if not keep_session:
                     self.disconnect_gprs()
                 return False
-        ret_data = ''
-        expire = time.monotonic() + http_timeout
-        while len(ret_data) < len_read and time.monotonic() < expire:
-            ret_data += self.ser.read(len_read).decode(
-                encoding='utf-8', errors='ignore')
-        logging.debug(
-            "Returned data: '%s'",
-            ret_data.replace("\n", "\\n").replace("\r", "\\r"))
-        r = self.check_incoming()
-        if r != ("OK", None) and ret_data[-5:].strip() == 'OK':
-            r = ("OK", None)
-            ret_data = ret_data[:-6]
-        if r != ("OK", None):
-            logging.critical(
-                "SIM800L - Missing 'OK' after reading characters: %s", r)
-            self.command('AT+HTTPTERM\n')
-            if not keep_session:
-                self.disconnect_gprs()
-            return False
-        if len(ret_data) != len_read:
-            logging.warning(
-                "Length of returned data: %d. Expected: %d",
-                len(ret_data), len_read)
-        r = self.command_ok('AT+HTTPTERM')
-        if not r:
-            self.command('AT+HTTPTERM\n')
-            if not keep_session:
-                self.disconnect_gprs()
-            return False
-        if not keep_session:
-            if not self.disconnect_gprs():
+            valid = s[1]
+            len_read = s[2]
+            if len_read == 0:
+                logging.debug("SIM800L - no data to be retrieved: %s", s)
+            if not valid:
+                logging.debug("SIM800L - invalid request: %s", s)
+            if not valid or len_read == 0:
                 self.command('AT+HTTPTERM\n')
-                self.disconnect_gprs()
+                if not keep_session:
+                    self.disconnect_gprs()
                 return False
-        return ret_data
+            r = self.command('AT+HTTPREAD\n')
+            params = r.split(':')
+            if (len(params) == 2 and
+                    params[0] == '+HTTPREAD' and
+                    params[1].strip().isnumeric()):
+                lr = int(params[1].strip())
+                if len_read != lr:
+                    logging.critical(
+                        "SIM800L - Different number of read characters:"
+                        " %d != %d",
+                        len_read, lr)
+                    self.command('AT+HTTPTERM\n')
+                    if not keep_session:
+                        self.disconnect_gprs()
+                    return False
+            ret_data = ''
+            expire = time.monotonic() + http_timeout
+            while len(ret_data) < len_read and time.monotonic() < expire:
+                ret_data += self.ser.read(len_read).decode(
+                    encoding='utf-8', errors='ignore')
+            logging.debug(
+                "Returned data: '%s'",
+                ret_data.replace("\n", "\\n").replace("\r", "\\r"))
+            r = self.check_incoming()
+            if r != ("OK", None) and ret_data[-5:].strip() == 'OK':
+                r = ("OK", None)
+                ret_data = ret_data[:-6]
+            if r != ("OK", None):
+                if attempts > 1:
+                    attempts -= 1
+                    time.sleep(ATTEMPT_DELAY)
+                    self.command('AT+HTTPTERM\n')
+                    continue
+                logging.critical(
+                    "SIM800L - Missing 'OK' after reading characters: %s", r)
+                self.command('AT+HTTPTERM\n')
+                if not keep_session:
+                    self.disconnect_gprs()
+                return False
+            if len(ret_data) != len_read:
+                logging.warning(
+                    "Length of returned data: %d. Expected: %d",
+                    len(ret_data), len_read)
+            r = self.command_ok('AT+HTTPTERM')
+            if not r:
+                self.command('AT+HTTPTERM\n')
+                if not keep_session:
+                    self.disconnect_gprs()
+                return False
+            if not keep_session:
+                if not self.disconnect_gprs():
+                    self.command('AT+HTTPTERM\n')
+                    self.disconnect_gprs()
+                    return False
+            return ret_data
 
     def read_and_delete_all(self, index_id=1):
         """
@@ -967,7 +992,8 @@ class SIM800L:
                    cmd,
                    check_download=False,
                    check_error=False,
-                   cmd_timeout=10):
+                   cmd_timeout=10,
+                   attempts=2):
         """
         Send AT command to the device and check that the return sting is OK
         :param cmd: AT command
@@ -975,31 +1001,37 @@ class SIM800L:
                                 checked
         :param check_error: True if the "ERROR" return sting has to be checked
         :param cmd_timeout: timeout in seconds
+        :param attempts: number of attempts before returning False
         :return: True = OK received, False = OK not received. If check_error,
                     can return "ERROR"; if check_download, can return "DOWNLOAD"
         """
         logging.debug("SIM800L - Sending command '%s'", cmd)
         r = self.command(cmd + "\n")
-        if not r:
-            r = ""
-        if r.strip() == "OK":
-            return True
-        if check_download and r.strip() == "DOWNLOAD":
-            return "DOWNLOAD"
-        if check_error and r.strip() == "ERROR":
-            return "ERROR"
-        if not r:
-            expire = time.monotonic() + cmd_timeout
-            s = self.check_incoming()
-            while s[0] == 'GENERIC' and not s[1] and time.monotonic() < expire:
-                time.sleep(0.1)
-                s = self.check_incoming()
-            if s == ("OK", None):
+        while attempts:
+            if not r:
+                r = ""
+            if r.strip() == "OK":
                 return True
-            if check_download and s == ("DOWNLOAD", None):
+            if check_download and r.strip() == "DOWNLOAD":
                 return "DOWNLOAD"
-            if check_error and s == ("ERROR", None):
+            if check_error and r.strip() == "ERROR":
                 return "ERROR"
+            if not r:
+                expire = time.monotonic() + cmd_timeout
+                s = self.check_incoming()
+                while (s[0] == 'GENERIC' and
+                        not s[1] and
+                        time.monotonic() < expire):
+                    time.sleep(0.1)
+                    s = self.check_incoming()
+                if s == ("OK", None):
+                    return True
+                if check_download and s == ("DOWNLOAD", None):
+                    return "DOWNLOAD"
+                if check_error and s == ("ERROR", None):
+                    return "ERROR"
+            attempts -= 1
+            time.sleep(ATTEMPT_DELAY)
         logging.critical(
             "SIM800L - Missing 'OK' return message after: '%s': '%s'", cmd, r)
         return False
