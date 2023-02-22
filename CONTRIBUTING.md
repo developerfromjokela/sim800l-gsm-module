@@ -1,12 +1,10 @@
-# Raspberry Pi SIM800L GSM module contribution guidelines
+# construct-gallery contribution guidelines
 
 Contributions might involve:
 
-- Adding new core features
-- Adding a new plugin in the plugin directory
-- Providing a new dictionary file for a specific EQU or vehicle
-- Updating or adding pids/data in obd_message.py
-- Updating or adding AT messages in obd_message.py
+- Adding features and enhancemeents
+- Updating code
+- Performing corrections and bug fixing
 
 In all these cases, we operate the "Fork & Pull" model explained at
 
@@ -25,7 +23,8 @@ You can help to report bugs by filing an [issue](https://github.com/Ircama/raspb
 ### Our Pledge
 
 In the interest of fostering an open and welcoming environment, we as
-contributors and maintainers pledge to making participation in our project and our community a harassment-free experience for everyone, regardless of age, body
+contributors and owner pledge to making participation in our project and our
+community a harassment-free experience for everyone, regardless of age, body
 size, disability, ethnicity, gender identity and expression, level of experience,
 nationality, personal appearance, race, religion, or sexual identity and
 orientation.
@@ -51,12 +50,12 @@ Examples of unacceptable behavior by participants include:
 
 ### Our Responsibilities
 
-Project maintainers are responsible for clarifying the standards of acceptable
-behavior and are expected to take appropriate and fair corrective action in
+Project owner is responsible for clarifying the standards of acceptable
+behavior and is expected to take appropriate and fair corrective action in
 response to any instances of unacceptable behavior.
 
-Project maintainers have the right and responsibility to remove, edit, or
+Project owner has the right and responsibility to remove, edit, or
 reject comments, commits, code, wiki edits, issues, and other contributions
 that are not aligned to this Code of Conduct, or to ban temporarily or
-permanently any contributor for other behaviors that they deem inappropriate,
+permanently any contributor for other behaviors that he deems inappropriate,
 threatening, offensive, or harmful.

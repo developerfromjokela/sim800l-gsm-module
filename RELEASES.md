@@ -2,11 +2,9 @@
 
 Only tags are used by now (not releases).
 
-Do not remove '# Connecting' in README.md.
-
 # Tagging a release
 
-If a version needs to be changed, edit `elm/__version__.py`.
+If a version needs to be changed, edit `sim800l/__version__.py`.
 
 This file is read by *setup.py*.
 
@@ -94,6 +92,8 @@ python3 -m build --sdist --wheel --outdir dist/ .
 python3 -m twine upload --repository testpypi dist/*
 ```
 
+(change *testpypi*)
+
 ## Local build (using setup):
 
 ```shell
@@ -101,12 +101,16 @@ python3 setup.py sdist bdist_wheel
 python3 -m twine upload --repository testpypi dist/*
 ```
 
+(change *testpypi*)
+
 ## Local build (using build versions):
 
 ```shell
 GITHUB_RUN_NUMBER=31 python3 setup.py sdist bdist_wheel
 python3 -m twine upload --repository testpypi dist/*
 ```
+
+(change *testpypi*)
 
 ## Removing directories
 
