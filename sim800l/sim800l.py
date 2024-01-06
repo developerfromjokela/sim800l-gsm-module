@@ -382,6 +382,9 @@ class SIM800L:
     def callback_msg(self, action):
         self.msg_action = action
 
+    def callback_clip(self, action):
+        self.clip_action = action
+
     def get_msgid(self):
         """
         Return the unsolicited notification of incoming SMS
