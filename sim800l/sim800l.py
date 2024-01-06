@@ -1265,9 +1265,10 @@ class SIM800L:
                 return "RING", None
 
             elif params[0].startswith("+CLIP"):
+                number = params[0].split(": ")[-1].replace('"', "")
                 if self.clip_action:
-                    self.clip_action(params[1])
-                return "CLIP", params[1]
+                    self.clip_action(number)
+                return "CLIP", number
 
             # OK
             elif buf.strip() == "OK":
