@@ -1259,10 +1259,15 @@ class SIM800L:
                         params[0])
                     return "NTP", None, 1
 
-            # +CLIP (legacy code)
-            elif params[0] == "RING" or params[0].startswith("+CLIP"):
-                # @todo handle
+            elif params[0] == "RING":
+                if self.incoming_action:
+                    self.incoming_action()
                 return "RING", None
+
+            elif params[0].startswith("+CLIP"):
+                if self.clip_action:
+                    self.clip_action(params[1])
+                return "CLIP", params[1]
 
             # OK
             elif buf.strip() == "OK":
