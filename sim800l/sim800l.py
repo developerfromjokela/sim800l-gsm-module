@@ -1204,7 +1204,7 @@ class SIM800L:
             elif params[0].startswith("+CMTI"):
                 self._msgid = int(params[1])
                 if self.msg_action:
-                    self.msg_action()
+                    self.msg_action(int(params[1]))
                 return "CMTI", self._msgid
 
             # ERROR
